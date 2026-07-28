@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Compile order matters in F# - dependencies first -->
+    <Compile Include="src/Types.fs" />
+    <Compile Include="src/Icons.fs" />
+    <Compile Include="src/Sound.fs" />
+    <Compile Include="src/Storage.fs" />
+    <Compile Include="src/App.fs" />
+    <Compile Include="src/View.fs" />
+    <Compile Include="src/Program.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Fable.Core" Version="5.1.0"/>
+    <PackageReference Include="Fable.Elmish" Version="5.0.2" />
+    <PackageReference Include="Fable.Elmish.React" Version="5.6.0" />
+    <PackageReference Include="Feliz" Version="3.2.0" />
+    <PackageReference Include="Vitest" Version="1.0.0" />
+    <PackageReference Include="Vitest.JestDom" Version="1.0.0" />
+    <PackageReference Include="Vitest.ReactTestingLibrary" Version="1.1.0" />
+    <PackageReference Include="Vitest.UserEvent" Version="1.0.0" />
+    <PackageReference Include="Thoth.Json" Version="10.5.1" />
+  </ItemGroup>
+
+</Project>
