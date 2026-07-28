@@ -198,3 +198,7 @@ out
 fable_modules/
 
 dist/
+
+**/*.fs.js
+**/*.fs.js.map
+.fable/
