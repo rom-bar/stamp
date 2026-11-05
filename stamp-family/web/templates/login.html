@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f6f3ec">
+  <title>Buku Keluarga — Masuk</title>
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+</head>
+<body class="login-page">
+  <main class="login-card">
+    <div class="brand-mark">✦</div>
+    <p class="eyebrow">BUKU KELUARGA</p>
+    <h1>Cerita kita,<br>disimpan bersama.</h1>
+    <p class="muted">Masuk untuk melihat jurnal dan koleksi keluarga. Data yang pernah dimuat tersimpan di perangkat ini untuk digunakan saat offline.</p>
+    <form class="stack-form" hx-post="/login" hx-target="#login-message" hx-swap="innerHTML">
+      <label>Username<input name="username" autocomplete="username" required minlength="3"></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="button primary full" type="submit">Masuk</button>
+      <div id="login-message" class="form-message" aria-live="polite"></div>
+    </form>
+    <div class="login-footnote">
+      <strong>Admin pertama?</strong> Jalankan <code>stamp-family create-admin -family "Nama Keluarga" -username admin</code> di terminal. Password awal dibuat otomatis dan ditampilkan satu kali.
+    </div>
+  </main>
+</body>
+</html>

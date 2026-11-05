@@ -1,0 +1,10 @@
+{
+  "name": "Buku Keluarga",
+  "short_name": "Buku Keluarga",
+  "description": "Jurnal dan kenangan keluarga, tetap tersedia saat offline.",
+  "start_url": "/app",
+  "display": "standalone",
+  "background_color": "#f6f3ec",
+  "theme_color": "#f6f3ec",
+  "lang": "id"
+}
