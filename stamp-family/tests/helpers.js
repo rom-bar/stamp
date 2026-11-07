@@ -32,8 +32,7 @@ function op(id, kind, payload) {
 async function seedStampCatalog(page, prefix = 'e2e') {
   await syncOperations(page, [
     op(`${prefix}-child`, 'child.add', { name: `${prefix} child`, color: '#f2b66d' }),
-    op(`${prefix}-reason`, 'reason.add', { name: `${prefix} reason`, emoji: '⭐' }),
-    op(`${prefix}-design`, 'design.add', { name: `${prefix} design`, emoji: '⭐', color: '#f2b66d' }),
+    op(`${prefix}-reason`, 'reason.add', { name: `${prefix} reason`, emoji: '🌱' }),
     op(`${prefix}-reward`, 'reward.add', { name: `${prefix} reward`, description: 'e2e reward', goal: 2 }),
   ]);
   await page.reload();

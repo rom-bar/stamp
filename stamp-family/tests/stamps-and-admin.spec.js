@@ -12,16 +12,29 @@ test.describe('stamp, reward, and admin controls', () => {
     await seedStampCatalog(page, 'stamp-flow');
 
     await page.locator('[data-tab=give]').click();
-    await expect(page.locator('#give-form [data-child-select] option')).toHaveCount(2);
-    await page.locator('#give-form [data-child-select]').selectOption({ label: 'stamp-flow child' });
-    await selectByText(page.locator('#give-form [data-reason-select]'), 'stamp-flow reason');
-    await selectByText(page.locator('#give-form [data-design-select]'), 'stamp-flow design');
-    await page.locator('#give-form').getByRole('button', { name: /tambahkan 1 stamp/i }).click();
+    const form = page.locator('#give-form');
+    await expect(form.locator('select')).toHaveCount(2);
+    await expect(form.locator('[data-design-select]')).toHaveCount(0);
+    await expect(form.locator('[data-child-select] option')).toHaveCount(2);
+    await expect(form.locator('[data-reason-select] option')).toHaveCount(43);
+    await form.locator('[data-child-select]').selectOption({ label: 'stamp-flow child' });
+    await selectByText(form.locator('[data-reason-select]'), 'stamp-flow reason');
+    await form.getByRole('button', { name: /tambahkan 1 stamp/i }).click();
     await expect(page.locator('#notice')).toContainText(/ditambahkan/i);
-    await page.locator('#give-form [data-child-select]').selectOption({ label: 'stamp-flow child' });
-    await selectByText(page.locator('#give-form [data-reason-select]'), 'stamp-flow reason');
-    await selectByText(page.locator('#give-form [data-design-select]'), 'stamp-flow design');
-    await page.locator('#give-form').getByRole('button', { name: /tambahkan 1 stamp/i }).click();
+    await expect(page.locator('#stamp-celebration')).toBeVisible();
+    await expect(page.locator('#celebration-stamp')).toHaveText('🌱');
+    await expect(page.locator('#celebration-detail')).toContainText('stamp-flow reason');
+    await expect(form.locator('[data-child-select]')).toHaveValue('');
+    await expect(form.locator('[data-reason-select]')).toHaveValue('');
+    await page.locator('#stamp-celebration .celebration-close').click();
+
+    await page.context().setOffline(true);
+    await form.locator('[data-child-select]').selectOption({ label: 'stamp-flow child' });
+    await selectByText(form.locator('[data-reason-select]'), 'stamp-flow reason');
+    await form.getByRole('button', { name: /tambahkan 1 stamp/i }).click();
+    await expect(page.locator('#stamp-celebration')).toBeVisible();
+    await expect(form.locator('[data-child-select]')).toHaveValue('');
+    await page.context().setOffline(false);
     await expect.poll(async () => (await page.locator('#sync-label').textContent()) || '').toMatch(/Tersinkron|sinkron/i);
 
     await page.locator('[data-bottom-tab=home]').click();

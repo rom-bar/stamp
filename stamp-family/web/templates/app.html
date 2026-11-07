@@ -8,6 +8,7 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js" defer></script>
+  <script src="/static/coloring-templates.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body class="app-page">
@@ -35,13 +36,13 @@
       </nav>
       <div class="section-heading collection-section-heading"><div><p class="eyebrow">PROGRES KECIL, RASA BANGGA BESAR</p><h2>Koleksi keluarga</h2></div></div>
       <div id="dashboard-children" class="child-grid"></div>
-      <div id="dashboard-empty" class="empty-state" hidden><div class="empty-emoji">🌱</div><h3>Mulai dengan menambahkan anak</h3><p>Tambahkan anak, alasan mendapat stamp, dan desain stamp di Pengaturan.</p><button class="button primary" data-open-tab="setup">Buka pengaturan</button></div>
+      <div id="dashboard-empty" class="empty-state" hidden><div class="empty-emoji">🌱</div><h3>Mulai dengan menambahkan anak</h3><p>Tambahkan profil anak di Pengaturan. Pilihan alasan stamp sudah tersedia.</p><button class="button primary" data-open-tab="setup">Buka pengaturan</button></div>
       <div class="tip-card"><span class="tip-icon">☁</span><div><strong>Offline-first</strong><p>Perubahan disimpan di perangkat ini dulu, lalu dikirim ke keluarga saat online.</p></div></div>
     </section>
     <section class="panel" id="panel-more">
       <div class="section-heading"><div><p class="eyebrow">PENGATURAN TAMBAHAN</p><h2>Lainnya</h2><p class="muted">Kelola ruang keluarga dan akun Anda.</p></div></div>
       <div class="more-grid">
-        <button class="more-card" type="button" data-tab="setup"><span class="more-icon" aria-hidden="true">⚙️</span><span class="more-copy"><strong>Setup keluarga</strong><small>Kelola profil anak, alasan, desain stamp, hadiah, dan akses anggota.</small></span><span class="more-arrow" aria-hidden="true">›</span></button>
+        <button class="more-card" type="button" data-tab="setup"><span class="more-icon" aria-hidden="true">⚙️</span><span class="more-copy"><strong>Setup keluarga</strong><small>Kelola profil anak, alasan stamp, hadiah, dan akses anggota.</small></span><span class="more-arrow" aria-hidden="true">›</span></button>
         <article class="more-info-card"><span class="more-icon" aria-hidden="true">🏡</span><div class="more-copy"><strong id="more-family-name">Keluarga</strong><small id="more-user-name">Akun keluarga</small></div><span class="more-status"><i class="online-dot"></i> <span id="more-sync-status">Tersinkron</span></span></article>
         <button class="more-logout" type="submit" form="logout-form"><span aria-hidden="true">↪</span> Keluar dari akun</button>
       </div>
@@ -100,7 +101,8 @@
     <section class="panel" id="panel-coloring">
       <div class="section-heading"><div><p class="eyebrow">WARNAI CERITA KELUARGA</p><h2>Ruang mewarnai</h2><p class="muted">Pilih gambar, sentuh bidang untuk mengisi warna, lalu simpan atau unduh hasilnya.</p></div></div>
       <section id="coloring-gallery-view" class="coloring-gallery-view" aria-labelledby="coloring-gallery-heading">
-        <div class="coloring-gallery-heading"><div><p class="eyebrow">GALERI GAMBAR</p><h3 id="coloring-gallery-heading">Pilih gambar favorit</h3></div><span class="count-badge">Bisa diwarnai berkali-kali</span></div>
+        <div class="coloring-gallery-heading"><div><p class="eyebrow">GALERI GAMBAR</p><h3 id="coloring-gallery-heading">Pilih gambar favorit</h3><p id="coloring-template-count" class="muted" aria-live="polite"></p></div><span class="count-badge">Bisa diwarnai berkali-kali</span></div>
+        <div id="coloring-category-filter" class="coloring-category-filter" role="group" aria-label="Filter kategori gambar mewarnai"></div>
         <div id="coloring-gallery" class="coloring-gallery" aria-label="Galeri gambar mewarnai"></div>
       </section>
       <section id="coloring-editor-view" class="coloring-editor-view" aria-labelledby="coloring-editor-title" hidden>
@@ -124,6 +126,7 @@
             <button type="button" class="coloring-tool selected" data-coloring-tool="brush" aria-pressed="true"><span aria-hidden="true">🖌️</span>Kuas</button>
             <button type="button" class="coloring-tool" data-coloring-tool="marker" aria-pressed="false"><span aria-hidden="true">🖍️</span>Spidol</button>
             <button type="button" class="coloring-tool" data-coloring-tool="pencil" aria-pressed="false"><span aria-hidden="true">✏️</span>Pensil</button>
+            <button type="button" class="coloring-tool" data-coloring-tool="splatter" aria-pressed="false"><span aria-hidden="true">🎨</span>Cipratan</button>
             <button type="button" class="coloring-tool" data-coloring-tool="fill" aria-pressed="false"><span aria-hidden="true">🪣</span>Ember cat</button>
             <button type="button" class="coloring-tool" data-coloring-tool="eraser" aria-pressed="false"><span aria-hidden="true">🧽</span>Penghapus</button>
           </div>
@@ -166,10 +169,8 @@
       <form id="give-form" class="form-card">
         <label>Untuk anak<select name="childId" data-child-select required></select></label>
         <label>Alasan<select name="reasonId" data-reason-select required></select></label>
-        <label>Desain stamp<select name="designId" data-design-select required></select></label>
-        <div id="give-preview" class="stamp-preview"></div>
         <button class="button primary full" type="submit">Tambahkan 1 stamp</button>
-        <p class="form-hint">Pemberian stamp masuk ke riwayat koleksi anak.</p>
+        <p class="form-hint">Emoji stamp otomatis mengikuti alasan yang dipilih. Pemberian stamp masuk ke riwayat koleksi anak.</p>
       </form>
     </section>
     <section class="panel" id="panel-collection">
@@ -189,11 +190,10 @@
       <div class="setup-grid">
         <article class="setup-card"><div class="setup-card-heading"><span class="setup-icon">👧</span><div><h3>Anak</h3><p>Kelola profil anak di keluarga.</p></div></div><div id="setup-children" class="managed-list"></div><form data-create-form="child.add" class="compact-form"><label>Nama anak<input name="name" maxlength="60" placeholder="mis. Ilyas" required></label><label>Warna<input name="color" type="color" value="#f2b66d" aria-label="Warna profil"></label><button class="button secondary" type="submit">Tambah anak</button></form></article>
         <article class="setup-card"><div class="setup-card-heading"><span class="setup-icon">💛</span><div><h3>Alasan stamp</h3><p>Hal yang dapat anak dapatkan stamp untuknya.</p></div></div><div id="setup-reasons" class="managed-list"></div><form data-create-form="reason.add" class="compact-form"><label>Nama alasan<input name="name" maxlength="60" placeholder="mis. Berbagi dengan baik" required></label><label>Emoji<input name="emoji" value="⭐" maxlength="8" placeholder="⭐"></label><button class="button secondary" type="submit">Tambah alasan</button></form></article>
-        <article class="setup-card"><div class="setup-card-heading"><span class="setup-icon">🌟</span><div><h3>Desain stamp</h3><p>Pilih emoji dan warna stamp keluarga.</p></div></div><div id="setup-designs" class="managed-list"></div><form data-create-form="design.add" class="compact-form"><label>Nama desain<input name="name" maxlength="50" placeholder="mis. Bintang emas" required></label><label>Emoji<input name="emoji" value="⭐" maxlength="8" placeholder="⭐"></label><label>Warna<input name="color" type="color" value="#f2b66d" aria-label="Warna stamp"></label><button class="button secondary" type="submit">Tambah desain</button></form></article>
         <article class="setup-card"><div class="setup-card-heading"><span class="setup-icon">🎁</span><div><h3>Hadiah</h3><p>Atur target stamp untuk hadiah.</p></div></div><div id="setup-rewards" class="managed-list"></div><form data-create-form="reward.add" class="compact-form"><label>Nama hadiah<input name="name" maxlength="80" placeholder="mis. Pilih cerita malam ini" required></label><label>Deskripsi<input name="description" maxlength="180" placeholder="Opsional"></label><label>Butuh berapa stamp?<input name="goal" type="number" min="1" max="500" value="5" required></label><button class="button secondary" type="submit">Tambah hadiah</button></form></article>
       </div>
       <article class="setup-card team-card" data-admin-only><div class="setup-card-heading"><span class="setup-icon">👨‍👩‍👧‍👦</span><div><h3>Akses keluarga</h3><p>Undang orang tepercaya. Semua anggota melihat data keluarga yang sama; satu akun hanya terikat ke satu keluarga.</p></div></div><div class="invite-row"><label>Username anggota<input id="invite-username" minlength="3" maxlength="40" placeholder="mis. ayah" autocomplete="off"></label><label>Peran<select id="invite-role"><option value="member">Anggota</option><option value="admin">Admin keluarga</option></select></label><button id="invite-button" class="button secondary" type="button">Buat akun</button></div><div id="invite-result" class="invite-result" hidden></div></article>
-      <div class="setup-note" data-admin-only>Hanya admin keluarga yang dapat menambah anak, alasan, desain stamp, hadiah, dan anggota. Anggota tetap dapat memberi stamp dan menukarkan hadiah.</div>
+      <div class="setup-note" data-admin-only>Hanya admin keluarga yang dapat menambah anak, alasan stamp, hadiah, dan anggota. Anggota tetap dapat memberi stamp dan menukarkan hadiah.</div>
       <div class="setup-note" data-member-only hidden>Anda adalah anggota keluarga. Anda dapat memberi stamp dan menukarkan hadiah; hubungi admin untuk mengubah pengaturan keluarga.</div>
     </section>
     <footer class="app-footer"><span id="pending-footer">Perubahan tersinkron</span><span>Buku Keluarga · Ruang kenangan</span></footer>

@@ -1,5 +1,5 @@
-const CACHE = 'stamp-family-shell-v8';
-const PRECACHE = ['/', '/app', '/static/app.css', '/static/app.js', '/static/htmx.min.js', '/manifest.json', '/offline.html'];
+const CACHE = 'stamp-family-shell-v9';
+const PRECACHE = ['/', '/app', '/static/app.css', '/static/app.js', '/static/coloring-templates.js', '/static/htmx.min.js', '/manifest.json', '/offline.html'];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(PRECACHE)).then(() => self.skipWaiting()));
 });

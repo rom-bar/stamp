@@ -35,6 +35,43 @@ func operation(id, kind string, payload any) syncOperation {
 	return syncOperation{ID: id, Kind: kind, Payload: b}
 }
 
+func TestFamilyStarterCatalogHasFortyOneReasonsAndIsIdempotent(t *testing.T) {
+	a := testDB(t)
+	u := insertTestFamily(t, a, "family-starter", "Starter Family")
+	for i := 0; i < 2; i++ {
+		tx, err := a.db.Begin()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = seedFamilyCatalogTx(tx, u.FamilyID); err != nil {
+			tx.Rollback()
+			t.Fatal(err)
+		}
+		if err = tx.Commit(); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var reasonCount, designCount int
+	if err := a.db.QueryRow(`SELECT COUNT(*) FROM reasons WHERE family_id=?`, u.FamilyID).Scan(&reasonCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.db.QueryRow(`SELECT COUNT(*) FROM stamp_designs WHERE family_id=? AND id=?`, u.FamilyID, reasonStampDesignID(u.FamilyID)).Scan(&designCount); err != nil {
+		t.Fatal(err)
+	}
+	if reasonCount != 41 || len(starterStampReasons) != 41 || designCount != 1 {
+		t.Fatalf("expected 41 starter reasons and one internal emoji design; got %d reasons, %d catalog reasons, %d designs", reasonCount, len(starterStampReasons), designCount)
+	}
+	snapshot, err := a.snapshot(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, design := range snapshot.Designs {
+		if design.ID == reasonStampDesignID(u.FamilyID) && !design.System {
+			t.Fatal("internal reason-driven stamp design should be marked system-only")
+		}
+	}
+}
+
 func TestOperationReplayIsIdempotentAndFamilyScoped(t *testing.T) {
 	a := testDB(t)
 	u1 := insertTestFamily(t, a, "family-a", "Family A")

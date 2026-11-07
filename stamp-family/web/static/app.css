@@ -168,6 +168,12 @@ input[type=checkbox], input[type=radio] { accent-color: var(--green); }
 .coloring-gallery-view { padding: clamp(14px, 3vw, 22px); border: 1px solid #f2cde0; border-radius: 27px; background: linear-gradient(145deg, #fff1f8, #fff8fc 62%, #f4f0ff); box-shadow: 0 9px 26px rgba(169,90,137,.09); }
 .coloring-gallery-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
 .coloring-gallery-heading h3 { margin: 0; font-size: 19px; letter-spacing: -.03em; }
+.coloring-gallery-heading .muted { margin: 4px 0 0; font-size: 11px; }
+.coloring-category-filter { display: flex; width: 100%; min-width: 0; gap: 7px; margin: 9px 0 14px; padding: 2px 2px 7px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+.coloring-category-button { display: inline-flex; min-height: 36px; flex: 0 0 auto; align-items: center; gap: 6px; padding: 6px 11px; border: 1px solid #ead8e3; border-radius: 999px; background: rgba(255,255,255,.78); color: #695867; font-size: 10px; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.coloring-category-button span { display: grid; min-width: 19px; height: 19px; place-items: center; padding: 0 4px; border-radius: 99px; background: #f7e6ef; color: #9d5b7e; font-size: 9px; }
+.coloring-category-button.selected { border-color: #db83b2; background: #fff; color: #8d456e; box-shadow: inset 0 0 0 1px #e9adcc; }
+.coloring-category-button.selected span { background: #f2cfe1; }
 .coloring-gallery { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 13px; }
 .coloring-card { display: grid; min-width: 0; gap: 8px; padding: 9px; border: 2px solid transparent; border-radius: 21px; background: #fff; box-shadow: 0 5px 12px rgba(111,61,94,.08); text-align: left; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
 .coloring-card:hover { transform: translateY(-3px); border-color: #ec8ec5; box-shadow: 0 10px 20px rgba(111,61,94,.13); }
@@ -193,7 +199,7 @@ input[type=checkbox], input[type=radio] { accent-color: var(--green); }
 .color-swatch.selected { box-shadow: 0 0 0 2px var(--green), 0 0 0 4px #fff; }
 .coloring-custom-color { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .coloring-custom-color input[type=color] { width: 42px; height: 36px; }
-.coloring-tools-grid { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; }
+.coloring-tools-grid { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 8px; }
 .coloring-tool { display: flex; min-width: 0; min-height: 56px; flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 3px; border: 1px solid #ece7dc; border-radius: 15px; background: #fffdfa; color: #58655d; font-size: 10px; font-weight: 800; cursor: pointer; }
 .coloring-tool span { font-size: 19px; line-height: 1.15; }
 .coloring-tool.selected { border-color: #df8abb; background: #fff1f8; color: #9a4e7c; box-shadow: inset 0 0 0 1px #df8abb; }
@@ -410,7 +416,7 @@ input[type=checkbox], input[type=radio] { accent-color: var(--green); }
   .coloring-editor-heading > div { grid-column: 1 / -1; grid-row: 1; }
   .coloring-editor-heading > .button { grid-row: 2; }
   .coloring-editor-heading > .button:last-child { grid-column: 2; }
-  .coloring-tools-grid { gap: 5px; }
+  .coloring-tools-grid { grid-template-columns: repeat(3, minmax(0,1fr)); gap: 5px; }
   .coloring-tool { min-height: 52px; font-size: 9px; }
   .coloring-tool span { font-size: 17px; }
   .coloring-palette { gap: 6px; }

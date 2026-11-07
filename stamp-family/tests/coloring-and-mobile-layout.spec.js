@@ -28,12 +28,15 @@ test.describe('mobile menu layout and coloring', () => {
     await seedStampCatalog(page, 'mobile-layout');
     const shellCache = await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
-      const cache = await caches.open('stamp-family-shell-v8');
+      const cache = await caches.open('stamp-family-shell-v9');
       const script = await cache.match('/static/app.js');
-      return { keys:await caches.keys(), script:script ? await script.text() : '' };
+      const catalog = await cache.match('/static/coloring-templates.js');
+      return { keys:await caches.keys(), script:script ? await script.text() : '', catalog:catalog ? await catalog.text() : '' };
     });
-    expect(shellCache.keys).toContain('stamp-family-shell-v8');
+    expect(shellCache.keys).toContain('stamp-family-shell-v9');
     expect(shellCache.script).toContain('floodColoringArea');
+    expect(shellCache.catalog).toContain('Kucing');
+    expect(shellCache.catalog).toContain('120 template');
 
     const navItems = page.locator('[data-bottom-tab]');
     await expect(navItems).toHaveCount(3);
@@ -79,8 +82,12 @@ test.describe('mobile menu layout and coloring', () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await login(page, 'family_a');
     await page.locator('.feature-grid [data-tab="coloring"]').click();
-    await expect(page.locator('#coloring-gallery .coloring-card')).toHaveCount(7);
-    await page.locator('[data-coloring-template="flower"]').click();
+    await expect(page.locator('#coloring-gallery .coloring-card:not(.blank-card)')).toHaveCount(120);
+    await expect(page.locator('#coloring-category-filter [data-coloring-category]')).toHaveCount(13);
+    await page.locator('#coloring-category-filter [data-coloring-category="Hewan"]').click();
+    await expect(page.locator('#coloring-gallery .coloring-card:not(.blank-card)')).toHaveCount(10);
+    await page.locator('#coloring-category-filter [data-coloring-category="Semua"]').click();
+    await page.locator('[data-coloring-template="hewan-1"]').click();
     await expect(page.locator('#coloring-editor-view')).toBeVisible();
     const canvas = page.locator('#coloring-canvas');
     await expect.poll(() => canvas.evaluate(el => {
@@ -98,6 +105,21 @@ test.describe('mobile menu layout and coloring', () => {
     expect(centerPixel[0]).toBeLessThan(80);
     expect(centerPixel[1]).toBeGreaterThan(130);
     expect(centerPixel[2]).toBeGreaterThan(150);
+
+    await page.locator('[data-coloring-color="#9b67d5"]').click();
+    await page.locator('[data-coloring-tool="splatter"]').click();
+    await expect(page.locator('[data-coloring-tool="splatter"]')).toHaveAttribute('aria-pressed', 'true');
+    await canvas.click({ position:{ x:45, y:35 } });
+    const splatterPixel = await canvas.evaluate(el => {
+      const rect = el.getBoundingClientRect();
+      const x = Math.floor(45 * el.width / rect.width), y = Math.floor(35 * el.height / rect.height);
+      return [...el.getContext('2d').getImageData(x, y, 1, 1).data];
+    });
+    expect(splatterPixel[0]).toBeGreaterThan(150);
+    expect(splatterPixel[0]).toBeLessThan(210);
+    expect(splatterPixel[1]).toBeGreaterThan(90);
+    expect(splatterPixel[1]).toBeLessThan(150);
+    expect(splatterPixel[2]).toBeGreaterThan(190);
 
     const downloadPromise = page.waitForEvent('download');
     await page.locator('#coloring-download').click();

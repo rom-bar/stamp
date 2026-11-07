@@ -147,6 +147,7 @@ type designRecord struct {
 	Name   string `json:"name"`
 	Emoji  string `json:"emoji"`
 	Color  string `json:"color"`
+	System bool   `json:"system,omitempty"`
 	Active bool   `json:"active"`
 }
 type rewardRecord struct {
@@ -174,6 +175,61 @@ type redeemRecord struct {
 }
 
 var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9_.-]{3,40}$`)
+
+type starterReason struct {
+	name  string
+	emoji string
+}
+
+var starterStampReasons = []starterReason{
+	{"Merapikan tempat tidur", "🛏️"},
+	{"Merapikan mainan", "🧸"},
+	{"Menyimpan sepatu di rak", "👟"},
+	{"Menata buku dan alat tulis", "📚"},
+	{"Menyiram tanaman", "🪴"},
+	{"Memberi makan hewan peliharaan", "🐾"},
+	{"Membantu menata meja makan", "🍽️"},
+	{"Membawa piring sendiri ke dapur", "🥣"},
+	{"Membantu mengelap meja", "🧽"},
+	{"Memilah sampah sesuai jenis", "♻️"},
+	{"Melipat pakaian kecil", "🧺"},
+	{"Menaruh pakaian kotor di keranjang", "👕"},
+	{"Menyiapkan botol minum", "🥤"},
+	{"Menata tas untuk besok", "🎒"},
+	{"Membantu mencuci buah", "🍎"},
+	{"Menjaga kamar tetap rapi", "🧹"},
+	{"Menyapu area kecil bersama orang tua", "🧹"},
+	{"Menata bantal sofa", "🛋️"},
+	{"Mengembalikan barang ke tempatnya", "📦"},
+	{"Menjaga kebersihan setelah makan", "✨"},
+	{"Berbagi tugas rumah dengan senang", "🤝"},
+	{"Membantu menyiapkan bekal sederhana", "🥪"},
+	{"Membantu membuat daftar belanja", "🛒"},
+	{"Membantu menyiram kebun", "🌱"},
+	{"Merapikan alat gambar setelah dipakai", "🎨"},
+	{"Menyelesaikan PR tepat waktu", "✏️"},
+	{"Membaca buku selama 15 menit", "📖"},
+	{"Menyiapkan buku sesuai jadwal", "📘"},
+	{"Merapikan kotak pensil", "🖍️"},
+	{"Menjaga meja belajar tetap rapi", "🗂️"},
+	{"Menyelesaikan tugas sekolah", "📄"},
+	{"Berani bertanya saat belum paham", "🙋"},
+	{"Mendengarkan guru dengan baik", "👂"},
+	{"Membantu teman belajar", "🤝"},
+	{"Berbagi alat tulis", "🖊️"},
+	{"Mengantre dengan tertib", "🚶"},
+	{"Menjaga kebersihan kelas", "🧹"},
+	{"Mengembalikan buku perpustakaan", "📚"},
+	{"Datang tepat waktu", "⏰"},
+	{"Mengumpulkan tugas sesuai waktu", "📮"},
+	{"Berani mencoba hal baru", "🌟"},
+}
+
+const reasonStampDesignPrefix = "system-reason-"
+
+func reasonStampDesignID(familyID string) string {
+	return reasonStampDesignPrefix + familyID
+}
 
 func main() {
 	if len(os.Args) > 1 && os.Args[1] == "create-admin" {
@@ -226,7 +282,62 @@ func openDB(path string) (*sql.DB, error) {
 		db.Close()
 		return nil, err
 	}
+	if err = seedFamilyCatalog(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 	return db, nil
+}
+
+func seedFamilyCatalog(db *sql.DB) error {
+	rows, err := db.Query(`SELECT id FROM families ORDER BY id`)
+	if err != nil {
+		return err
+	}
+	familyIDs := []string{}
+	for rows.Next() {
+		var familyID string
+		if err := rows.Scan(&familyID); err != nil {
+			rows.Close()
+			return err
+		}
+		familyIDs = append(familyIDs, familyID)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return err
+	}
+	rows.Close()
+	for _, familyID := range familyIDs {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		if err = seedFamilyCatalogTx(tx, familyID); err != nil {
+			tx.Rollback()
+			return err
+		}
+		if err = tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func seedFamilyCatalogTx(tx *sql.Tx, familyID string) error {
+	_, err := tx.Exec(`INSERT OR IGNORE INTO stamp_designs(id,family_id,name,emoji,color,active) VALUES(?,?,?,?,?,1)`, reasonStampDesignID(familyID), familyID, "Emoji dari alasan", "⭐", "#f2eadb")
+	if err != nil {
+		return err
+	}
+	for index, reason := range starterStampReasons {
+		id := fmt.Sprintf("starter-reason-%s-%02d", familyID, index+1)
+		_, err = tx.Exec(`INSERT OR IGNORE INTO reasons(id,family_id,name,emoji,active)
+			SELECT ?,?,?,?,1 WHERE NOT EXISTS(SELECT 1 FROM reasons WHERE family_id=? AND name=?)`, id, familyID, reason.name, reason.emoji, familyID, reason.name)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func migrate(db *sql.DB) error {
@@ -373,6 +484,9 @@ func createAdmin(args []string) error {
 	}
 	if _, err = tx.Exec(`INSERT INTO users(id,family_id,username,password_hash,role,created_at) VALUES(?,?,?,?,?,?)`, userID, familyID, *username, string(hash), "admin", now); err != nil {
 		return fmt.Errorf("create admin: %w", err)
+	}
+	if err = seedFamilyCatalogTx(tx, familyID); err != nil {
+		return fmt.Errorf("seed family catalog: %w", err)
 	}
 	if err = tx.Commit(); err != nil {
 		return err
@@ -719,6 +833,7 @@ func (a *app) snapshot(u userSession) (snapshot, error) {
 		if err = rows.Scan(&x.ID, &x.Name, &x.Emoji, &x.Color, &active); err != nil {
 			return s, err
 		}
+		x.System = x.ID == reasonStampDesignID(u.FamilyID)
 		x.Active = active == 1
 		s.Designs = append(s.Designs, x)
 	}

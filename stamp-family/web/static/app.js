@@ -35,14 +35,9 @@
   const MAX_CANVAS_HISTORY = 20;
   const MAX_COLORING_HISTORY = 20;
   const reactionChoices = ['❤️', '👏', '😂', '🌟', '🤗', '👍'];
-  const coloringTemplates = [
-    { id:'flower', name:'Bunga ceria', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220"><g fill="#fff" stroke="#25352f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="150" cy="53" rx="24" ry="43"/><ellipse cx="150" cy="53" rx="24" ry="43" transform="rotate(45 150 110)"/><ellipse cx="150" cy="53" rx="24" ry="43" transform="rotate(90 150 110)"/><ellipse cx="150" cy="53" rx="24" ry="43" transform="rotate(135 150 110)"/><ellipse cx="150" cy="110" rx="34" ry="31"/><circle cx="140" cy="105" r="3" fill="#25352f"/><circle cx="160" cy="105" r="3" fill="#25352f"/><path d="M142 117q8 8 16 0" fill="none"/><path d="M150 141v48m0-22q-24-17-39-2 12 23 39 11m0-9q23-19 39-4-10 23-39 13"/><path d="M150 188v12"/></g></svg>` },
-    { id:'fish', name:'Teman laut', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220"><g fill="#fff" stroke="#25352f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M54 110q49-73 139-49 31 10 47 49-16 39-47 49-90 24-139-49Z"/><path d="M53 110 20 72v76z"/><path d="M131 73q15-34 43-33-2 26-14 42m-43 65q16 31 43 33-2-26-14-42"/><circle cx="202" cy="99" r="5" fill="#25352f"/><path d="M205 121q-12 9-22 0m-27-15q-11 13 0 26m-39-35q-9 12 0 24" fill="none"/><circle cx="83" cy="62" r="10"/><circle cx="244" cy="71" r="8"/><circle cx="263" cy="143" r="12"/><path d="M28 188q23-12 46 0t46 0 46 0" fill="none"/></g></svg>` },
-    { id:'cat', name:'Kucing manis', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220"><g fill="#fff" stroke="#25352f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="m68 80 8-52 48 34q25-8 52 0l48-34 8 52q19 22 19 55 0 67-107 67T37 135q0-33 31-55Z"/><path d="m91 73-5-25 25 18m103 7 5-25-25 18"/><path d="M91 127q16-17 31 0m57 0q15-17 31 0" fill="none"/><path d="m144 140 6 5 6-5q-6-7-12 0Z"/><path d="M150 145q-8 14-20 8m20-8q8 14 20 8m-66-2-36-6m36 15-38 5m138-14 36-6m-36 15 38 5" fill="none"/><circle cx="62" cy="49" r="8"/><circle cx="239" cy="55" r="10"/><path d="M119 177q31 19 62 0" fill="none"/></g></svg>` },
-    { id:'butterfly', name:'Kupu-kupu', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220"><g fill="#fff" stroke="#25352f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M147 102Q92 24 50 43 16 63 54 101q-49 8-30 53 18 33 105-4l18-23Z"/><path d="M153 102q55-78 97-59 34 20-4 58 49 8 30 53-18 33-105-4l-18-23Z"/><path d="M137 93q-20-36-42-33 7 28 34 44m-42 26q-28 3-37 22 26 12 48-8m63-51q20-36 42-33-7 28-34 44m42 26q28 3 37 22-26 12-48-8" fill="none"/><ellipse cx="150" cy="119" rx="13" ry="45"/><circle cx="150" cy="67" r="12"/><path d="M146 58q-24-27-29-13m37 13q24-27 29-13" fill="none"/><circle cx="52" cy="83" r="5"/><circle cx="248" cy="83" r="5"/><circle cx="63" cy="145" r="5"/><circle cx="237" cy="145" r="5"/></g></svg>` },
-    { id:'turtle', name:'Kura-kura', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220"><g fill="#fff" stroke="#25352f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M62 130q0-63 88-63t88 63q-12 43-88 43t-88-43Z"/><path d="M238 114q45-18 48 9-2 24-44 22m-157-7-30 19q-11 6-17-4l20-26m46 42-12 28q-5 11-17 7l4-36m110 0 12 29q5 10 17 6l-4-35m-72-126q0-24 18-24t18 24"/><path d="M105 94q15-28 30 0t30 0 30 0M105 126q15-28 30 0t30 0 30 0" fill="none"/><circle cx="268" cy="126" r="3" fill="#25352f"/><path d="M256 138q9 8 18 0" fill="none"/><circle cx="95" cy="188" r="8"/><circle cx="202" cy="186" r="8"/></g></svg>` },
-    { id:'rainbow', name:'Pelangi lembut', svg:`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 220"><g fill="#fff" stroke="#25352f" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M37 166a113 113 0 0 1 226 0h-29a84 84 0 0 0-168 0Zm58 0a55 55 0 0 1 110 0h-29a26 26 0 0 0-52 0Z"/><path d="M37 166q-23-2-25-21-1-16 14-20-7-19 10-29 17-9 31 5m196 65q23-2 25-21 1-16-14-20 7-19-10-29-17-9-31 5"/><circle cx="81" cy="49" r="11"/><circle cx="219" cy="43" r="8"/><path d="m150 31 5 10 11 2-8 8 2 11-10-5-10 5 2-11-8-8 11-2z"/><path d="m61 92 4 8 9 1-6 6 1 9-8-4-8 4 2-9-7-6 9-1z"/></g></svg>` },
-  ];
+  const coloringCategories = window.STAMP_COLORING_CATEGORIES || [];
+  const coloringTemplates = coloringCategories.flatMap(category => (category.templates || []).map(template => ({ ...template, category:category.name })));
+  let activeColoringCategory = 'Semua';
 
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -141,12 +136,12 @@
     overlay.hidden = true;
     overlay.setAttribute('aria-hidden', 'true');
   }
-  function showStampCelebration(design, child, reason) {
+  function showStampCelebration(child, reason) {
     const overlay = $('#stamp-celebration');
     const icon = $('#celebration-stamp');
     if (!overlay || !icon) return;
-    icon.textContent = design?.emoji || '⭐';
-    icon.style.setProperty('--stamp-color', design?.color || '#f2b66d');
+    icon.textContent = reason?.emoji || '⭐';
+    icon.style.setProperty('--stamp-color', '#f2eadb');
     $('#celebration-detail').textContent = `${child?.name || 'Anak'}${reason?.name ? ` · ${reason.name}` : ''}`;
     overlay.hidden = false;
     overlay.setAttribute('aria-hidden', 'false');
@@ -230,7 +225,6 @@
   function fillSelects(state) {
     const children = state.children || [];
     const reasons = state.reasons.filter(x => x.active !== false);
-    const designs = state.designs.filter(x => x.active !== false);
     const fill = (selector, values, label, placeholder) => {
       $$(selector).forEach(el => {
         const old = el.value;
@@ -240,7 +234,6 @@
     };
     fill('[data-child-select]', children, x => x.name, children.length ? 'Pilih anak' : 'Tambahkan anak dulu');
     fill('[data-reason-select]', reasons, x => `${x.emoji || '⭐'} ${x.name}`, reasons.length ? 'Pilih alasan' : 'Tambahkan alasan dulu');
-    fill('[data-design-select]', designs, x => `${x.emoji || '⭐'} ${x.name}`, designs.length ? 'Pilih desain' : 'Tambahkan desain dulu');
   }
   function render() {
     const state = projected();
@@ -264,7 +257,6 @@
     renderActivities(state);
     renderCalendar(state);
     renderWeeklyMemories(state);
-    renderPreview(state);
     updateSyncStatus();
   }
   function renderDashboard(state) {
@@ -291,7 +283,8 @@
     $('#stamp-list').innerHTML = list.length ? list.map(stamp => {
       const design = state.designs.find(x => x.id === stamp.designId) || {emoji:'⭐',name:'Stamp'};
       const reason = state.reasons.find(x => x.id === stamp.reasonId) || {name:'Usaha hebat'};
-      return `<article class="stamp-row"><div class="stamp-emoji" style="background:${esc(design.color || '#f4ead7')}">${esc(design.emoji || '⭐')}</div><div class="stamp-info"><strong>${esc(design.name)}${stamp.pending ? ' · menunggu sinkron' : ''}</strong><span>${esc(reason.name)}</span></div><span class="stamp-date">${esc(dateText(stamp.createdAt))}</span></article>`;
+      const emoji = reason.emoji || design.emoji || '⭐';
+      return `<article class="stamp-row"><div class="stamp-emoji" style="background:${esc(design.color || '#f4ead7')}">${esc(emoji)}</div><div class="stamp-info"><strong>${esc(emoji)} Stamp${stamp.pending ? ' · menunggu sinkron' : ''}</strong><span>${esc(reason.name)}</span></div><span class="stamp-date">${esc(dateText(stamp.createdAt))}</span></article>`;
     }).join('') : '<div class="empty-state compact">Belum ada stamp di koleksi ini.</div>';
   }
   function renderRewards(state) {
@@ -318,7 +311,6 @@
     const item = (icon, name, detail='') => `<div class="managed-item"><span>${icon} ${esc(name)}</span><span>${esc(detail)}</span></div>`;
     $('#setup-children').innerHTML = state.children.length ? state.children.map(x => item('●',x.name,'Anak')).join('') : '<span class="muted" style="font-size:11px">Belum ada anak.</span>';
     $('#setup-reasons').innerHTML = state.reasons.length ? state.reasons.map(x => item(x.emoji||'⭐',x.name,'Alasan')).join('') : '<span class="muted" style="font-size:11px">Belum ada alasan.</span>';
-    $('#setup-designs').innerHTML = state.designs.length ? state.designs.map(x => item(x.emoji||'⭐',x.name,x.color||'')).join('') : '<span class="muted" style="font-size:11px">Belum ada desain stamp.</span>';
     $('#setup-rewards').innerHTML = state.rewards.length ? state.rewards.map(x => item('🎁',x.name,`${x.goal} stamp`)).join('') : '<span class="muted" style="font-size:11px">Belum ada hadiah.</span>';
   }
   function journalDateLabel(value) {
@@ -428,13 +420,6 @@
     const shared = entries.filter(entry => entry.shared).length;
     const headline = entries.length ? (entries[0].title || 'Kenangan tanpa judul') : 'Minggu ini masih menunggu cerita pertama';
     root.innerHTML = `<div class="weekly-memory-mark" aria-hidden="true">✦</div><div class="weekly-memory-copy"><p class="eyebrow">MEMORI 7 HARI TERAKHIR</p><h3>${entries.length ? `${entries.length} ${entries.length === 1 ? 'kenangan' : 'kenangan'} tersimpan` : 'Yuk simpan satu cerita kecil'}</h3><p>${entries.length ? `${days} hari terisi · ${shared} dibagikan bersama keluarga. Terbaru: ${esc(headline)}.` : 'Tulisan atau gambar bertanggalmu akan dirangkum di sini.'}</p></div><span class="weekly-memory-range">${esc(weekStart.slice(5))}—${esc(today.slice(5))}</span>`;
-  }
-  function renderPreview(state) {
-    const designId = $('[data-design-select]')?.value;
-    const reasonId = $('[data-reason-select]')?.value;
-    const design = state.designs.find(x => x.id === designId);
-    const reason = state.reasons.find(x => x.id === reasonId);
-    $('#give-preview').innerHTML = design ? `<span class="preview-stamp" style="background:${esc(design.color)}">${esc(design.emoji)}</span><span>${esc(design.name)}${reason ? ` · ${esc(reason.name)}` : ''}</span>` : '<span class="preview-stamp" style="background:#f2eadb">⭐</span><span>Pilih desain untuk pratinjau.</span>';
   }
   function switchTab(name) {
     const navTab = name === 'give' ? 'stamp' : (name === 'more' || name === 'setup' ? 'more' : 'home');
@@ -711,7 +696,18 @@
   function renderColoringGallery() {
     const root = $('#coloring-gallery');
     if (!root) return;
-    root.innerHTML = `<button class="coloring-card blank-card" type="button" data-coloring-template="blank"><span class="coloring-card-art"><span class="blank-art-mark" aria-hidden="true">＋</span></span><span class="coloring-card-copy"><strong>Kanvas kosong</strong><span>Mulai ›</span></span></button>${coloringTemplates.map(template => `<button class="coloring-card" type="button" data-coloring-template="${template.id}"><span class="coloring-card-art">${template.svg}</span><span class="coloring-card-copy"><strong>${esc(template.name)}</strong><span>Warnai ›</span></span></button>`).join('')}`;
+    const filter = $('#coloring-category-filter');
+    const categories = ['Semua', ...coloringCategories.map(category => category.name)];
+    filter.innerHTML = categories.map(category => {
+      const count = category === 'Semua' ? coloringTemplates.length : coloringTemplates.filter(template => template.category === category).length;
+      const selected = category === activeColoringCategory;
+      return `<button type="button" class="coloring-category-button${selected ? ' selected' : ''}" data-coloring-category="${esc(category)}" aria-pressed="${selected}">${esc(category)} <span>${count}</span></button>`;
+    }).join('');
+    const filteredTemplates = activeColoringCategory === 'Semua'
+      ? coloringTemplates
+      : coloringTemplates.filter(template => template.category === activeColoringCategory);
+    $('#coloring-template-count').textContent = `${filteredTemplates.length} gambar${activeColoringCategory === 'Semua' ? ' tersedia' : ` · ${activeColoringCategory}`}`;
+    root.innerHTML = `<button class="coloring-card blank-card" type="button" data-coloring-template="blank"><span class="coloring-card-art"><span class="blank-art-mark" aria-hidden="true">＋</span></span><span class="coloring-card-copy"><strong>Kanvas kosong</strong><span>Mulai ›</span></span></button>${filteredTemplates.map(template => `<button class="coloring-card" type="button" data-coloring-template="${esc(template.id)}" data-coloring-category="${esc(template.category)}"><span class="coloring-card-art">${template.svg}</span><span class="coloring-card-copy"><strong>${esc(template.name)}</strong><span>Warnai ›</span></span></button>`).join('')}`;
   }
   function setColoringTool(tool) {
     coloringTool = tool;
@@ -820,6 +816,28 @@
     ctx.putImageData(image, 0, 0);
     coloringHasChanges = true;
   }
+  function splatterColoringAt(x, y) {
+    const canvas = $('#coloring-canvas');
+    const ctx = canvas.getContext('2d');
+    const size = Number($('#coloring-brush-size').value);
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = .78;
+    ctx.fillStyle = coloringColor;
+    const dot = (cx, cy, radius) => {
+      ctx.beginPath();
+      ctx.arc(cx, cy, Math.max(1.5, radius), 0, Math.PI * 2);
+      ctx.fill();
+    };
+    dot(x, y, size * .24);
+    for (let i = 0; i < 28; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const distance = Math.random() * size * 2.4;
+      dot(x + Math.cos(angle) * distance, y + Math.sin(angle) * distance, size * (.07 + Math.random() * .18));
+    }
+    ctx.restore();
+    coloringHasChanges = true;
+  }
   function downloadColoring() {
     const canvas = $('#coloring-canvas');
     const title = ($('#coloring-title').value || 'gambar-mewarnai').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'gambar-mewarnai';
@@ -879,6 +897,11 @@
         floodColoringArea(Math.floor(p.x), Math.floor(p.y));
         return;
       }
+      if (coloringTool === 'splatter') {
+        saveColoringHistory();
+        splatterColoringAt(p.x, p.y);
+        return;
+      }
       saveColoringHistory();
       coloringInProgress = true;
       canvas.setPointerCapture(event.pointerId);
@@ -910,6 +933,12 @@
     $('#coloring-gallery')?.addEventListener('click', event => {
       const card = event.target.closest('[data-coloring-template]');
       if (card) openColoringTemplate(card.dataset.coloringTemplate);
+    });
+    $('#coloring-category-filter')?.addEventListener('click', event => {
+      const button = event.target.closest('[data-coloring-category]');
+      if (!button) return;
+      activeColoringCategory = button.dataset.coloringCategory;
+      renderColoringGallery();
     });
     $('#coloring-back')?.addEventListener('click', () => {
       if (coloringHasChanges && !window.confirm('Karya belum disimpan. Kembali ke galeri dan buang perubahan?')) return;
@@ -1091,7 +1120,6 @@
   });
   document.addEventListener('change', event => {
     if (event.target.matches('[data-child-select]')) render();
-    if (event.target.matches('[data-design-select], [data-reason-select]')) { if (snapshot) renderPreview(projected()); }
     if (event.target.matches('#journal-filter')) { if (snapshot) render(); }
     if (event.target.matches('#journal-media-input')) {
       const submit = $('#journal-form button[type="submit"]');
@@ -1230,10 +1258,10 @@
     const submitButton = form.querySelector('button[type="submit"]');
     if (submitButton?.disabled) return;
     const data = new FormData(form);
-    const payload = { id:uuid(), childId:data.get('childId'), reasonId:data.get('reasonId'), designId:data.get('designId') };
-    if (!payload.childId || !payload.reasonId || !payload.designId) { notify('Pilih anak, alasan, dan desain terlebih dahulu.', 'error'); return; }
+    const familyID = profile?.familyId || snapshot?.family?.id || '';
+    const payload = { id:uuid(), childId:data.get('childId'), reasonId:data.get('reasonId'), designId:`system-reason-${familyID}` };
+    if (!payload.childId || !payload.reasonId || !familyID) { notify('Pilih anak dan alasan terlebih dahulu.', 'error'); return; }
     const state = projected();
-    const design = state?.designs.find(item => item.id === payload.designId);
     const child = state?.children.find(item => item.id === payload.childId);
     const reason = state?.reasons.find(item => item.id === payload.reasonId);
     const audio = prepareStampAudio();
@@ -1241,9 +1269,8 @@
     try {
       await enqueue('stamp.give', payload);
       form.reset();
-      if (snapshot) renderPreview(projected());
       playStampSound(audio);
-      showStampCelebration(design, child, reason);
+      showStampCelebration(child, reason);
       notify('Stamp ditambahkan ke koleksi.', 'success');
     } catch (_) {
       notify('Stamp belum berhasil disimpan di perangkat. Coba lagi.', 'error');
