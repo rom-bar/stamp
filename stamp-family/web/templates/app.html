@@ -187,6 +187,10 @@
     </section>
     <section class="panel" id="panel-setup">
       <div class="section-heading"><div><p class="eyebrow">ATUR SESUAI KELUARGA</p><h2>Pengaturan keluarga</h2></div></div>
+      <section class="sync-control-card" aria-labelledby="manual-sync-heading">
+        <div class="sync-control-copy"><p class="eyebrow">DATA & GAMBAR TERBARU</p><h3 id="manual-sync-heading">Sinkronisasi perangkat</h3><p class="muted">Ambil data keluarga terbaru dan perbarui katalog gambar untuk pemakaian online maupun offline.</p><p id="manual-sync-last-sync" class="sync-control-last">Sinkronisasi terakhir: belum ada di perangkat ini.</p><p id="manual-sync-status" class="sync-control-status" role="status" aria-live="polite">Siap menyinkronkan data dan gambar.</p></div>
+        <button id="manual-sync-button" class="button primary" type="button">Sinkronkan sekarang</button>
+      </section>
       <div class="setup-grid">
         <article class="setup-card"><div class="setup-card-heading"><span class="setup-icon">👧</span><div><h3>Anak</h3><p>Kelola profil anak di keluarga.</p></div></div><div id="setup-children" class="managed-list"></div><form data-create-form="child.add" class="compact-form"><label>Nama anak<input name="name" maxlength="60" placeholder="mis. Ilyas" required></label><label>Warna<input name="color" type="color" value="#f2b66d" aria-label="Warna profil"></label><button class="button secondary" type="submit">Tambah anak</button></form></article>
         <article class="setup-card"><div class="setup-card-heading"><span class="setup-icon">💛</span><div><h3>Alasan stamp</h3><p>Hal yang dapat anak dapatkan stamp untuknya.</p></div></div><div id="setup-reasons" class="managed-list"></div><form data-create-form="reason.add" class="compact-form"><label>Nama alasan<input name="name" maxlength="60" placeholder="mis. Berbagi dengan baik" required></label><label>Emoji<input name="emoji" value="⭐" maxlength="8" placeholder="⭐"></label><button class="button secondary" type="submit">Tambah alasan</button></form></article>

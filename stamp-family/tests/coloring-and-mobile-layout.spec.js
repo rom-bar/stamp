@@ -28,12 +28,12 @@ test.describe('mobile menu layout and coloring', () => {
     await seedStampCatalog(page, 'mobile-layout');
     const shellCache = await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
-      const cache = await caches.open('stamp-family-shell-v9');
+      const cache = await caches.open('stamp-family-shell-v10');
       const script = await cache.match('/static/app.js');
       const catalog = await cache.match('/static/coloring-templates.js');
       return { keys:await caches.keys(), script:script ? await script.text() : '', catalog:catalog ? await catalog.text() : '' };
     });
-    expect(shellCache.keys).toContain('stamp-family-shell-v9');
+    expect(shellCache.keys).toContain('stamp-family-shell-v10');
     expect(shellCache.script).toContain('floodColoringArea');
     expect(shellCache.catalog).toContain('Kucing');
     expect(shellCache.catalog).toContain('120 template');

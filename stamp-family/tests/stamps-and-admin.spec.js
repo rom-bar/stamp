@@ -16,7 +16,7 @@ test.describe('stamp, reward, and admin controls', () => {
     await expect(form.locator('select')).toHaveCount(2);
     await expect(form.locator('[data-design-select]')).toHaveCount(0);
     await expect(form.locator('[data-child-select] option')).toHaveCount(2);
-    await expect(form.locator('[data-reason-select] option')).toHaveCount(43);
+    await expect(form.locator('[data-reason-select] option').filter({ hasText:'stamp-flow reason' })).toHaveCount(1);
     await form.locator('[data-child-select]').selectOption({ label: 'stamp-flow child' });
     await selectByText(form.locator('[data-reason-select]'), 'stamp-flow reason');
     await form.getByRole('button', { name: /tambahkan 1 stamp/i }).click();

@@ -9,8 +9,9 @@
   let profile = null;
   let onlineSession = false;
   let sessionRequired = false;
-  let syncing = false;
-  let syncRequested = false;
+  let syncPromise = null;
+  let manualSyncing = false;
+  let lastSyncAt = null;
   let queueChain = Promise.resolve();
   let audioContext = null;
   let celebrationTimer = null;
@@ -221,6 +222,24 @@
     $('#pending-footer').textContent = pending ? `${pending} perubahan menunggu sinkronisasi` : 'Perubahan tersinkron';
     const moreStatus = $('#more-sync-status');
     if (moreStatus) moreStatus.textContent = sessionRequired ? 'Perlu login ulang' : ((!navigator.onLine || !onlineSession) ? 'Offline' : (pending ? 'Menunggu sinkronisasi' : 'Tersinkron'));
+  }
+  function setManualSyncStatus(message, tone = '') {
+    const status = $('#manual-sync-status');
+    if (!status) return;
+    status.textContent = message;
+    status.className = `sync-control-status ${tone}`.trim();
+  }
+  function renderManualSyncInfo() {
+    const last = $('#manual-sync-last-sync');
+    if (!last) return;
+    if (!lastSyncAt) {
+      last.textContent = 'Sinkronisasi terakhir: belum ada di perangkat ini.';
+      return;
+    }
+    const date = new Date(lastSyncAt);
+    last.textContent = Number.isNaN(date.getTime())
+      ? 'Sinkronisasi terakhir: waktu tidak diketahui.'
+      : `Sinkronisasi terakhir: ${new Intl.DateTimeFormat('id-ID', { dateStyle:'medium', timeStyle:'short' }).format(date)}`;
   }
   function fillSelects(state) {
     const children = state.children || [];
@@ -441,85 +460,90 @@
       await kvSet(keyFor('queue'), queue);
     });
     render();
-    if (navigator.onLine && onlineSession) syncQueue();
+    if (navigator.onLine && onlineSession) setTimeout(() => syncQueue(), 0);
     return operations;
   }
   async function enqueue(kind, payload) {
     return enqueueMany([{ kind, payload }]);
   }
   async function syncQueue() {
-    if (!navigator.onLine || !onlineSession || !snapshot) return;
-    if (syncing) { syncRequested = true; return; }
-    const queue = await withQueueLock(async () => (await currentQueue()) || []);
-    if (!queue.length) { window.__pending = []; updateSyncStatus(); return; }
-    const mediaIndex = queue.findIndex(op => op.kind === 'media.upload');
-    if (mediaIndex === 0) {
-      syncing = true;
+    if (!navigator.onLine || !onlineSession || !snapshot) return { ok:false, offline:true, pending:(window.__pending || []).length };
+    if (syncPromise) return syncPromise;
+    const attempt = drainSyncQueue();
+    syncPromise = attempt;
+    try { return await attempt; }
+    finally { if (syncPromise === attempt) syncPromise = null; }
+  }
+  async function drainSyncQueue() {
+    while (navigator.onLine && onlineSession && snapshot) {
+      const queue = await withQueueLock(async () => (await currentQueue()) || []);
+      window.__pending = queue;
+      if (!queue.length) { updateSyncStatus(); return { ok:true, pending:0 }; }
       updateSyncStatus();
-      let continueSync = false;
-      try {
+      const mediaIndex = queue.findIndex(op => op.kind === 'media.upload');
+      if (mediaIndex === 0) {
         const upload = queue[0];
-        const response = await fetch('/api/media/upload', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ operationId:upload.id, ...upload.payload }) });
-        if (response.status === 401) { onlineSession = false; sessionRequired = true; showGate('Sesi berakhir. Masuk kembali untuk menyinkronkan.'); return; }
-        if (!response.ok) {
-          const result = await response.json().catch(() => ({}));
-          throw new Error(result.error || `HTTP ${response.status}`);
+        try {
+          const response = await fetch('/api/media/upload', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ operationId:upload.id, ...upload.payload }) });
+          if (response.status === 401) { onlineSession = false; sessionRequired = true; showGate('Sesi berakhir. Masuk kembali untuk menyinkronkan.'); return { ok:false, unauthorized:true, pending:queue.length }; }
+          if (!response.ok) {
+            const result = await response.json().catch(() => ({}));
+            throw new Error(result.error || `HTTP ${response.status}`);
+          }
+          await withQueueLock(async () => {
+            const latest = (await currentQueue()) || [];
+            const keep = latest.filter(item => item.id !== upload.id);
+            await kvSet(keyFor('queue'), keep);
+            window.__pending = keep;
+          });
+          continue;
+        } catch (error) {
+          updateSyncStatus(`Sinkronisasi gagal: ${error.message}`);
+          return { ok:false, error:error.message, pending:(window.__pending || []).length };
         }
+      }
+      const batch = [];
+      const eligible = mediaIndex > 0 ? queue.slice(0, mediaIndex) : queue.slice(0, 100);
+      for (const op of eligible) {
+        const candidate = [...batch, op];
+        const bytes = new TextEncoder().encode(JSON.stringify({operations:candidate})).length;
+        if (batch.length && bytes > 240 * 1024) break;
+        batch.push(op);
+        if (bytes > 240 * 1024) break;
+      }
+      try {
+        const response = await fetch('/api/sync', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({operations:batch}) });
+        if (response.status === 401) { onlineSession = false; sessionRequired = true; showGate('Sesi berakhir. Masuk kembali untuk menyinkronkan.'); return { ok:false, unauthorized:true, pending:queue.length }; }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const reply = await response.json();
+        const applied = new Set(reply.applied || []);
         const remaining = await withQueueLock(async () => {
           const latest = (await currentQueue()) || [];
-          const keep = latest.filter(item => item.id !== upload.id);
+          const keep = latest.filter(op => !applied.has(op.id));
           await kvSet(keyFor('queue'), keep);
           window.__pending = keep;
           return keep;
         });
-        continueSync = remaining.length > 0;
-        updateSyncStatus();
+        await persistSnapshot(reply.snapshot);
+        render();
+        const rejected = Object.values(reply.rejected || {});
+        if (rejected.length) {
+          const reason = rejected[0];
+          notify(`Perubahan belum diterima server: ${reason}. Tetap tersimpan di perangkat.`, 'error');
+          updateSyncStatus(`Sinkronisasi gagal: ${reason}`);
+          return { ok:false, error:reason, rejected:rejected.length, pending:remaining.length };
+        }
+        if (batch.every(op => !applied.has(op.id))) {
+          const reason = 'Server belum mengonfirmasi perubahan.';
+          updateSyncStatus(`Sinkronisasi gagal: ${reason}`);
+          return { ok:false, error:reason, pending:remaining.length };
+        }
       } catch (error) {
         updateSyncStatus(`Sinkronisasi gagal: ${error.message}`);
-      } finally {
-        syncing = false;
-        if ((continueSync || syncRequested) && navigator.onLine && onlineSession) setTimeout(() => syncQueue(), 0);
-        syncRequested = false;
+        return { ok:false, error:error.message, pending:(window.__pending || []).length };
       }
-      return;
     }
-    const batch = [];
-    const eligible = mediaIndex > 0 ? queue.slice(0, mediaIndex) : queue.slice(0, 100);
-    for (const op of eligible) {
-      const candidate = [...batch, op];
-      const bytes = new TextEncoder().encode(JSON.stringify({operations:candidate})).length;
-      if (batch.length && bytes > 240 * 1024) break;
-      batch.push(op);
-      if (bytes > 240 * 1024) break;
-    }
-    syncing = true;
-    updateSyncStatus();
-    let continueSync = false;
-    try {
-      const response = await fetch('/api/sync', { method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body:JSON.stringify({operations:batch}) });
-      if (response.status === 401) { onlineSession = false; sessionRequired = true; showGate('Sesi berakhir. Masuk kembali untuk menyinkronkan.'); return; }
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const reply = await response.json();
-      const done = new Set([...(reply.applied || []), ...Object.keys(reply.rejected || {})]);
-      const remaining = await withQueueLock(async () => {
-        const latest = (await currentQueue()) || [];
-        const keep = latest.filter(op => !done.has(op.id));
-        await kvSet(keyFor('queue'), keep);
-        window.__pending = keep;
-        return keep;
-      });
-      continueSync = remaining.length > 0;
-      await persistSnapshot(reply.snapshot);
-      const rejected = Object.values(reply.rejected || {});
-      if (rejected.length) notify(`Sebagian perubahan tidak dapat diterapkan: ${rejected[0]}`, 'error');
-      render();
-    } catch (error) {
-      updateSyncStatus('Sinkronisasi gagal');
-    } finally {
-      syncing = false;
-      if ((continueSync || syncRequested) && navigator.onLine && onlineSession) setTimeout(() => syncQueue(), 0);
-      syncRequested = false;
-    }
+    return { ok:false, offline:true, pending:(window.__pending || []).length };
   }
   async function loadOnline() {
     const response = await fetch('/api/bootstrap', { credentials:'same-origin', cache:'no-store' });
@@ -531,10 +555,120 @@
     mediaCache = (await kvGet(keyFor('media-cache'))) || {};
     localJournals = (await kvGet(keyFor('journal-local'))) || [];
     onlineSession = true;
+    lastSyncAt = data.serverTime || new Date().toISOString();
+    await kvSet(keyFor('last-sync'), lastSyncAt);
+    renderManualSyncInfo();
     window.__pending = await withQueueLock(async () => (await currentQueue()) || []);
     render();
-    await syncQueue();
-    return { auth:true };
+    const sync = await syncQueue();
+    if (!manualSyncing) {
+      if (sync.ok) setManualSyncStatus('Data keluarga tersinkron. Tekan tombol untuk memeriksa katalog gambar terbaru.', 'success');
+      else if (sync.pending) setManualSyncStatus(`${sync.pending} perubahan tetap tersimpan di perangkat dan akan dicoba lagi.`, 'pending');
+    }
+    return { auth:true, sync, serverTime:lastSyncAt };
+  }
+  async function fetchLatestColoringCatalog() {
+    const url = `/static/coloring-templates.js?manual-sync=${Date.now()}-${uuid()}`;
+    const response = await fetch(url, { credentials:'same-origin', cache:'no-store' });
+    if (!response.ok) throw new Error(`Katalog gambar gagal diambil (HTTP ${response.status}).`);
+    const cachedResponse = response.clone();
+    const source = await response.text();
+    if (!source.includes('STAMP_COLORING_CATEGORIES') || !source.includes('<svg')) throw new Error('Berkas katalog gambar tidak valid.');
+    let changed = true;
+    if ('caches' in window) {
+      const cacheName = (await caches.keys()).find(name => name.startsWith('stamp-family-shell-'));
+      if (cacheName) {
+        const cache = await caches.open(cacheName);
+        const previous = await cache.match('/static/coloring-templates.js');
+        const previousSource = previous ? await previous.text() : '';
+        await cache.put('/static/coloring-templates.js', cachedResponse);
+        changed = previousSource !== source;
+      }
+    }
+    return { changed, bytes:new TextEncoder().encode(source).length };
+  }
+  async function updateServiceWorkerIfAvailable() {
+    if (!('serviceWorker' in navigator)) return false;
+    let registration;
+    try { registration = await navigator.serviceWorker.getRegistration(); }
+    catch (_) { return false; }
+    if (!registration?.active) return false;
+    const previous = registration.active;
+    try { await registration.update(); }
+    catch (_) { return false; }
+    if (registration.active && registration.active !== previous) return true;
+    const installing = registration.installing;
+    if (!installing) return false;
+    return new Promise(resolve => {
+      let finished = false;
+      const finish = value => {
+        if (finished) return;
+        finished = true;
+        clearTimeout(timer);
+        installing.removeEventListener('statechange', check);
+        resolve(value);
+      };
+      const check = () => {
+        if (registration.active && registration.active !== previous && installing.state === 'activated') finish(true);
+        else if (installing.state === 'redundant') finish(false);
+      };
+      const timer = setTimeout(() => finish(false), 10_000);
+      installing.addEventListener('statechange', check);
+      check();
+    });
+  }
+  async function manualSyncNow() {
+    const button = $('#manual-sync-button');
+    if (!button || manualSyncing) return;
+    if (!navigator.onLine) {
+      const pending = (window.__pending || []).length;
+      const message = `Offline. ${pending ? `${pending} perubahan lokal tetap tersimpan` : 'Data lokal tetap tersedia'}. Hubungkan internet lalu coba lagi.`;
+      setManualSyncStatus(message, 'pending');
+      notify(message, 'error');
+      return;
+    }
+    manualSyncing = true;
+    button.disabled = true;
+    button.textContent = 'Menyinkronkan…';
+    setManualSyncStatus('Mengambil data keluarga dan katalog gambar terbaru…');
+    let familyDataLoaded = false;
+    try {
+      const result = await loadOnline();
+      if (!result.auth) {
+        const message = 'Sesi berakhir. Masuk kembali untuk menyinkronkan; perubahan lokal tetap tersimpan.';
+        setManualSyncStatus(message, 'error');
+        notify(message, 'error');
+        return;
+      }
+      familyDataLoaded = true;
+      const catalog = await fetchLatestColoringCatalog();
+      const shellUpdated = await updateServiceWorkerIfAvailable();
+      const pending = (await currentQueue()) || [];
+      if (pending.length) {
+        const message = `Data keluarga dan katalog sudah diperiksa. ${pending.length} perubahan belum diterima dan tetap tersimpan di perangkat; coba sinkronkan lagi nanti.`;
+        setManualSyncStatus(message, 'pending');
+        notify(message, 'error');
+      } else {
+        const message = `Berhasil. Data keluarga terbaru dimuat dan katalog gambar diperiksa (${Math.round(catalog.bytes / 1024)} KB).`;
+        setManualSyncStatus(message, 'success');
+        notify(message, 'success');
+      }
+      if (catalog.changed || shellUpdated) {
+        setManualSyncStatus(`${pending.length ? `${pending.length} perubahan tetap tersimpan. ` : ''}Pembaruan gambar siap; memuat ulang aplikasi…`, pending.length ? 'pending' : 'success');
+        setTimeout(() => window.location.reload(), 900);
+      }
+    } catch (error) {
+      const pending = (await currentQueue().catch(() => [])) || [];
+      const message = `${familyDataLoaded ? 'Data keluarga berhasil dimuat, tetapi katalog belum diperbarui.' : 'Sinkronisasi gagal.'} ${error.message || 'Periksa koneksi lalu coba lagi.'}${pending.length ? ` ${pending.length} perubahan lokal tetap tersimpan.` : ''}`;
+      setManualSyncStatus(message, 'error');
+      notify(message, 'error');
+    } finally {
+      manualSyncing = false;
+      if (button.isConnected) {
+        button.disabled = false;
+        button.textContent = 'Sinkronkan sekarang';
+      }
+    }
   }
   async function loadApp() {
     if (!$('#panel-dashboard')) return;
@@ -558,10 +692,13 @@
       snapshot = cached;
       mediaCache = (await kvGet(keyFor('media-cache'))) || {};
       localJournals = (await kvGet(keyFor('journal-local'))) || [];
+      lastSyncAt = await kvGet(keyFor('last-sync'));
+      renderManualSyncInfo();
       window.__pending = await withQueueLock(async () => (await kvGet(`queue:${profile.id}`)) || []);
       onlineSession = false;
       $('#notice').textContent = 'Mode offline aktif. Perubahan antre dahulu dan akan disinkronkan setelah kembali online.';
       $('#notice').hidden = false;
+      setManualSyncStatus('Offline. Perubahan tersimpan lokal; hubungkan internet untuk mengambil data dan katalog terbaru.', 'pending');
       render();
     } else {
       showGate('Belum ada data offline');
@@ -1298,6 +1435,7 @@
     } catch (error) { notify(error.message, 'error'); }
     finally { button.disabled = false; }
   });
+  $('#manual-sync-button')?.addEventListener('click', manualSyncNow);
   $('#logout-form')?.addEventListener('submit', event => {
     const queue = window.__pending || [];
     const privateCount = localJournals.length;
@@ -1310,9 +1448,18 @@
     try {
       const result = await loadOnline();
       if (!result.auth) showGate('Sesi berakhir. Masuk kembali untuk menyinkronkan.');
-    } catch (_) { onlineSession = false; updateSyncStatus('Sinkronisasi gagal'); }
+    } catch (_) {
+      onlineSession = false;
+      updateSyncStatus('Sinkronisasi gagal');
+      setManualSyncStatus('Koneksi kembali, tetapi data belum berhasil disegarkan. Coba tombol Sinkronkan sekarang.', 'error');
+    }
   });
-  window.addEventListener('offline', () => { onlineSession = false; updateSyncStatus(); });
+  window.addEventListener('offline', () => {
+    onlineSession = false;
+    updateSyncStatus();
+    const pending = (window.__pending || []).length;
+    setManualSyncStatus(`Offline. ${pending ? `${pending} perubahan lokal tetap tersimpan` : 'Data lokal tetap tersedia'}; hubungkan internet untuk memperbarui.`, 'pending');
+  });
   if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
   loadApp();
 })();
