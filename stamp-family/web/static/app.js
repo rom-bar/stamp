@@ -448,8 +448,15 @@
       if (active) btn.setAttribute('aria-current', 'page');
       else btn.removeAttribute('aria-current');
     });
-    $$('.panel').forEach(panel => panel.classList.toggle('active', panel.id === `panel-${name}`));
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    const activePanel = $(`#panel-${name}`);
+    $$('.panel').forEach(panel => panel.classList.toggle('active', panel === activePanel));
+    const heading = activePanel?.querySelector('.section-heading h2, .section-heading h3');
+    if (heading) {
+      heading.setAttribute('tabindex', '-1');
+      heading.focus({ preventScroll: true });
+    }
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
   }
   async function enqueueMany(items) {
     const operations = items.map(item => ({ id:uuid(), kind:item.kind, payload:item.payload, createdAt:new Date().toISOString() }));
