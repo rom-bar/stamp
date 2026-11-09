@@ -25,6 +25,9 @@ try {
   execFileSync(binary, ['create-admin', '-family', 'Family B', '-username', 'family_b', '-password', 'Test-password-2026'], {
     cwd: root, env: serverEnv, stdio: 'ignore',
   });
+  execFileSync(binary, ['create-admin', '-family', 'Family C', '-username', 'family_c', '-password', 'Test-password-2026'], {
+    cwd: root, env: serverEnv, stdio: 'ignore',
+  });
 } catch (error) {
   removeTempFiles();
   throw error;

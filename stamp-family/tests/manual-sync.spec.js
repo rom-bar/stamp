@@ -138,7 +138,7 @@ test('catalog and category filters survive offline reload on desktop and mobile'
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout:12_000 }).toBe(true);
   const shell = await page.evaluate(async () => {
-    const cache = await caches.open('stamp-family-shell-v10');
+    const cache = await caches.open('stamp-family-shell-v11');
     return { catalog:!!(await cache.match('/static/coloring-templates.js')), script:!!(await cache.match('/static/app.js')) };
   });
   expect(shell.catalog).toBe(true);

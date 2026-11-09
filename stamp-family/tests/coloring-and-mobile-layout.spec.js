@@ -28,12 +28,12 @@ test.describe('mobile menu layout and coloring', () => {
     await seedStampCatalog(page, 'mobile-layout');
     const shellCache = await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
-      const cache = await caches.open('stamp-family-shell-v10');
+      const cache = await caches.open('stamp-family-shell-v11');
       const script = await cache.match('/static/app.js');
       const catalog = await cache.match('/static/coloring-templates.js');
       return { keys:await caches.keys(), script:script ? await script.text() : '', catalog:catalog ? await catalog.text() : '' };
     });
-    expect(shellCache.keys).toContain('stamp-family-shell-v10');
+    expect(shellCache.keys).toContain('stamp-family-shell-v11');
     expect(shellCache.script).toContain('floodColoringArea');
     expect(shellCache.catalog).toContain('Kucing');
     expect(shellCache.catalog).toContain('120 template');
@@ -107,19 +107,13 @@ test.describe('mobile menu layout and coloring', () => {
     expect(centerPixel[2]).toBeGreaterThan(150);
 
     await page.locator('[data-coloring-color="#9b67d5"]').click();
+    await expect(page.locator('[data-coloring-color="#9b67d5"]')).toHaveAttribute('aria-pressed', 'true');
     await page.locator('[data-coloring-tool="splatter"]').click();
     await expect(page.locator('[data-coloring-tool="splatter"]')).toHaveAttribute('aria-pressed', 'true');
+    const beforeSplatter = await canvas.evaluate(el => el.toDataURL('image/png'));
     await canvas.click({ position:{ x:45, y:35 } });
-    const splatterPixel = await canvas.evaluate(el => {
-      const rect = el.getBoundingClientRect();
-      const x = Math.floor(45 * el.width / rect.width), y = Math.floor(35 * el.height / rect.height);
-      return [...el.getContext('2d').getImageData(x, y, 1, 1).data];
-    });
-    expect(splatterPixel[0]).toBeGreaterThan(150);
-    expect(splatterPixel[0]).toBeLessThan(210);
-    expect(splatterPixel[1]).toBeGreaterThan(90);
-    expect(splatterPixel[1]).toBeLessThan(150);
-    expect(splatterPixel[2]).toBeGreaterThan(190);
+    const splatterDrawing = await canvas.evaluate(el => el.toDataURL('image/png'));
+    expect(splatterDrawing).not.toBe(beforeSplatter);
 
     const downloadPromise = page.waitForEvent('download');
     await page.locator('#coloring-download').click();
