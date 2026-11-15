@@ -1,0 +1,10 @@
+*.db
+*.db-shm
+*.db-wal
+/stamp-family
+
+__pycache__/
+
+node_modules/
+playwright-report/
+test-results/
