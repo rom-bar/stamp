@@ -8,12 +8,20 @@ async function openSettings(page) {
   await expect(page.locator('#panel-setup')).toBeVisible();
 }
 
+async function openReasons(page) {
+  await page.locator('[data-bottom-tab="more"]').click();
+  await page.locator('.more-grid [data-tab="reasons"]').click();
+  await expect(page.locator('#panel-reasons')).toBeVisible();
+}
+
 async function addReasonLocally(page, name) {
+  await openReasons(page);
   const form = page.locator('[data-create-form="reason.add"]');
   await form.locator('input[name="name"]').fill(name);
   await form.getByRole('button', { name: 'Tambah alasan' }).click();
-  await expect(page.locator('#setup-reasons')).toContainText(name);
+  await expect(page.locator('#reason-list')).toContainText(name);
   await expect.poll(() => page.evaluate(() => (window.__pending || []).length)).toBe(1);
+  await openSettings(page);
 }
 
 async function serverReasonCount(page, name) {
@@ -54,7 +62,9 @@ test.describe('manual family and catalog sync', () => {
     const syncButton = page.getByRole('button', { name:'Sinkronkan sekarang' });
     await syncButton.click();
     await expect(page.locator('#manual-sync-status')).toContainText('Berhasil');
-    await expect(page.locator('#setup-reasons')).toContainText(name);
+    await openReasons(page);
+    await expect(page.locator('#reason-list')).toContainText(name);
+    await openSettings(page);
     await expect(page.locator('#manual-sync-last-sync')).toContainText('Sinkronisasi terakhir:');
     await syncButton.click();
     await expect(page.locator('#manual-sync-status')).toContainText('Berhasil');
@@ -138,7 +148,7 @@ test('catalog and category filters survive offline reload on desktop and mobile'
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout:12_000 }).toBe(true);
   const shell = await page.evaluate(async () => {
-    const cache = await caches.open('stamp-family-shell-v11');
+    const cache = await caches.open('stamp-family-shell-v13');
     return { catalog:!!(await cache.match('/static/coloring-templates.js')), script:!!(await cache.match('/static/app.js')) };
   });
   expect(shell.catalog).toBe(true);

@@ -1,0 +1,6 @@
+Animal icons bundled in web/static/animal-atlas.svg are sourced from OpenMoji 17.0.0 by the OpenMoji contributors.
+Source: https://github.com/hfg-gmuend/openmoji
+Project: https://openmoji.org/
+License: CC BY-SA 4.0 (https://creativecommons.org/licenses/by-sa/4.0/)
+
+The individual SVG source files are kept in this directory for reproducible rebuilding with scripts/build_animal_atlas.py. The atlas is used locally and cached for offline play.

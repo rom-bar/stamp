@@ -68,9 +68,9 @@ test.describe('stamp, reward, and admin controls', () => {
     });
     expect([401, 403]).toContain(invite);
     await expect(memberPage.locator('[data-admin-tab]')).toBeHidden();
-    await expect(memberPage.locator('[data-admin-only]')).toHaveCount(2);
+    await expect(memberPage.locator('[data-admin-only]')).toHaveCount(3);
     expect(await memberPage.locator('[data-admin-only]').evaluateAll(elements => elements.every(element => element.hidden))).toBe(true);
-    await expect(memberPage.locator('[data-member-only]')).not.toHaveAttribute('hidden');
+    expect(await memberPage.locator('[data-member-only]').evaluateAll(elements => elements.length === 2 && elements.every(element => !element.hidden))).toBe(true);
     await member.close();
   });
 

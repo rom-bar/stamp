@@ -8,8 +8,8 @@
   <link rel="manifest" href="/manifest.json">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/htmx.min.js" defer></script>
-  <script src="/static/htmx.min.js" defer></script>
   <script src="/static/coloring-templates.js" defer></script>
+  <script src="/static/animal-bank.js" defer></script>
   <script src="/static/app.js" defer></script>
 </head>
 <body class="app-page">
@@ -34,6 +34,7 @@
         <button class="feature-card" type="button" data-tab="calendar"><span class="feature-icon calendar-icon" aria-hidden="true">🗓️</span><strong>Kalender</strong><small>Agenda keluarga</small></button>
         <button class="feature-card" type="button" data-tab="collection"><span class="feature-icon collection-icon" aria-hidden="true">🌟</span><strong>Koleksi</strong><small>Lihat stamp anak</small></button>
         <button class="feature-card" type="button" data-tab="rewards"><span class="feature-icon rewards-icon" aria-hidden="true">🎁</span><strong>Hadiah</strong><small>Tukar pencapaian</small></button>
+        <button class="feature-card animal-game-card" type="button" data-tab="animal-game"><span class="feature-icon animal-game-icon" aria-hidden="true"><svg viewBox="0 0 72 72"><use href="/static/animal-atlas.svg#animal-1F431"></use></svg></span><strong>Tebak hewan</strong><small>10 soal dari 100 gambar</small></button>
       </nav>
       <div class="section-heading collection-section-heading"><div><p class="eyebrow">PROGRES KECIL, RASA BANGGA BESAR</p><h2>Koleksi keluarga</h2></div></div>
       <div id="dashboard-children" class="child-grid"></div>
@@ -43,7 +44,8 @@
     <section class="panel" id="panel-more">
       <div class="section-heading"><div><p class="eyebrow">PENGATURAN TAMBAHAN</p><h2>Lainnya</h2><p class="muted">Kelola ruang keluarga dan akun Anda.</p></div></div>
       <div class="more-grid">
-        <button class="more-card" type="button" data-tab="setup"><span class="more-icon" aria-hidden="true">⚙️</span><span class="more-copy"><strong>Setup keluarga</strong><small>Kelola profil anak, alasan stamp, hadiah, dan akses anggota.</small></span><span class="more-arrow" aria-hidden="true">›</span></button>
+        <button class="more-card" type="button" data-tab="setup"><span class="more-icon" aria-hidden="true">⚙️</span><span class="more-copy"><strong>Setup keluarga</strong><small>Kelola profil anak, hadiah, dan akses anggota.</small></span><span class="more-arrow" aria-hidden="true">›</span></button>
+        <button class="more-card" type="button" data-tab="reasons"><span class="more-icon reason-menu-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/><circle cx="3" cy="6" r="1"/><circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/></svg></span><span class="more-copy"><strong>Alasan stamp</strong><small>Cari dan kelola alasan yang dipakai untuk memberi stamp.</small></span><span class="more-arrow" aria-hidden="true">›</span></button>
         <article class="more-info-card"><span class="more-icon" aria-hidden="true">🏡</span><div class="more-copy"><strong id="more-family-name">Keluarga</strong><small id="more-user-name">Akun keluarga</small></div><span class="more-status"><i class="online-dot"></i> <span id="more-sync-status">Tersinkron</span></span></article>
         <button class="more-logout" type="submit" form="logout-form"><span aria-hidden="true">↪</span> Keluar dari akun</button>
       </div>
@@ -169,7 +171,9 @@
       <div class="section-heading"><div><p class="eyebrow">RAYAKAN USAHA MEREKA</p><h2>Beri stamp</h2></div></div>
       <form id="give-form" class="form-card">
         <label>Untuk anak<select name="childId" data-child-select required></select></label>
+        <label for="give-reason-search">Cari alasan<input id="give-reason-search" type="search" placeholder="Ketik nama alasan…" autocomplete="off"></label>
         <label>Alasan<select name="reasonId" data-reason-select required></select></label>
+        <p id="give-reason-empty" class="form-hint" hidden>Tidak ada alasan yang cocok. Coba kata lain atau kelola alasan stamp.</p>
         <button class="button primary full" type="submit">Tambahkan 1 stamp</button>
         <p class="form-hint">Emoji stamp otomatis mengikuti alasan yang dipilih. Pemberian stamp masuk ke riwayat koleksi anak.</p>
       </form>
@@ -185,6 +189,38 @@
       <div class="filter-row"><label class="inline-label">Untuk anak<select data-child-select id="reward-child"></select></label><span class="count-badge" id="reward-balance">0 stamp tersedia</span></div>
       <div id="reward-list" class="reward-grid"></div>
       <div class="empty-state compact" id="reward-empty" hidden>Belum ada hadiah. Admin keluarga dapat menambahkannya di Pengaturan.</div>
+      <section class="spontaneous-redeem" aria-labelledby="spontaneous-redeem-title">
+        <div><h3 id="spontaneous-redeem-title">Hadiah dadakan</h3><p>Masukkan nama hadiah dan jumlah stamp untuk menukarnya langsung.</p></div>
+        <form id="custom-redeem-form" class="quick-redeem-form">
+          <label>Nama hadiah<input name="rewardName" maxlength="80" placeholder="mis. Pilih camilan" required></label>
+          <label>Jumlah stamp<input name="cost" type="number" min="1" max="500" inputmode="numeric" placeholder="mis. 3" required></label>
+          <button class="button primary" type="submit">Tukar sekarang</button>
+        </form>
+      </section>
+      <section class="redemption-history" aria-labelledby="redemption-history-title">
+        <div class="section-heading"><h3 id="redemption-history-title">Riwayat penukaran</h3></div>
+        <div id="redemption-list" class="redemption-list"></div>
+        <div id="redemption-empty" class="empty-state compact" hidden>Belum ada hadiah yang ditukar.</div>
+      </section>
+    </section>
+    <section class="panel" id="panel-reasons">
+      <div class="section-heading"><div><h2>Alasan stamp</h2><p class="muted">Cari alasan yang sudah ada atau tambahkan alasan baru.</p></div><span id="reason-count" class="count-badge">0 alasan</span></div>
+      <label class="reason-search-label" for="reason-list-search">Cari alasan<input id="reason-list-search" type="search" placeholder="Ketik nama alasan…" autocomplete="off"></label>
+      <div id="reason-list" class="reason-list"></div>
+      <form data-create-form="reason.add" data-admin-only class="compact-form reason-create-form">
+        <h3>Tambah alasan</h3>
+        <label>Nama alasan<input name="name" maxlength="60" placeholder="mis. Berbagi dengan baik" required></label>
+        <label>Emoji stamp<input name="emoji" value="⭐" maxlength="8" placeholder="⭐"></label>
+        <button class="button secondary" type="submit">Tambah alasan</button>
+      </form>
+      <div class="setup-note" data-member-only hidden>Hanya admin keluarga yang dapat menambah alasan stamp. Anda tetap dapat mencari dan memilih alasan saat memberi stamp.</div>
+    </section>
+    <section class="panel" id="panel-animal-game">
+      <div class="section-heading"><div><h2>Tebak hewan</h2><p class="muted">Tebak 10 gambar dari bank 100 hewan. Pilihan yang mirip membuat permainan tetap menantang.</p></div></div>
+      <div id="animal-game" class="animal-game" aria-live="polite">
+        <div class="animal-game-intro"><div class="animal-game-intro-art"><svg viewBox="0 0 72 72" role="img" aria-label="Ilustrasi rubah"><use href="/static/animal-atlas.svg#animal-1F98A"></use></svg></div><div><h3>Siap menebak?</h3><p>Setiap babak memilih 10 hewan secara acak. Pilih nama yang paling cocok dengan gambarnya.</p><button id="animal-game-start" class="button primary" type="button">Mulai bermain</button></div></div>
+      </div>
+      <p class="animal-attribution">Ilustrasi hewan oleh <a href="https://openmoji.org/" target="_blank" rel="noopener noreferrer">OpenMoji</a>, berlisensi <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer">CC BY-SA 4.0</a>.</p>
     </section>
     <section class="panel" id="panel-setup">
       <div class="section-heading"><div><p class="eyebrow">ATUR SESUAI KELUARGA</p><h2>Pengaturan keluarga</h2></div></div>
@@ -194,7 +230,6 @@
       </section>
       <div class="setup-grid">
         <article class="setup-card"><div class="setup-card-heading"><span class="setup-icon">👧</span><div><h3>Anak</h3><p>Kelola profil anak di keluarga.</p></div></div><div id="setup-children" class="managed-list"></div><form data-create-form="child.add" class="compact-form"><label>Nama anak<input name="name" maxlength="60" placeholder="mis. Ilyas" required></label><label>Warna<input name="color" type="color" value="#f2b66d" aria-label="Warna profil"></label><button class="button secondary" type="submit">Tambah anak</button></form></article>
-        <article class="setup-card"><div class="setup-card-heading"><span class="setup-icon">💛</span><div><h3>Alasan stamp</h3><p>Hal yang dapat anak dapatkan stamp untuknya.</p></div></div><div id="setup-reasons" class="managed-list"></div><form data-create-form="reason.add" class="compact-form"><label>Nama alasan<input name="name" maxlength="60" placeholder="mis. Berbagi dengan baik" required></label><label>Emoji<input name="emoji" value="⭐" maxlength="8" placeholder="⭐"></label><button class="button secondary" type="submit">Tambah alasan</button></form></article>
         <article class="setup-card"><div class="setup-card-heading"><span class="setup-icon">🎁</span><div><h3>Hadiah</h3><p>Atur target stamp untuk hadiah.</p></div></div><div id="setup-rewards" class="managed-list"></div><form data-create-form="reward.add" class="compact-form"><label>Nama hadiah<input name="name" maxlength="80" placeholder="mis. Pilih cerita malam ini" required></label><label>Deskripsi<input name="description" maxlength="180" placeholder="Opsional"></label><label>Butuh berapa stamp?<input name="goal" type="number" min="1" max="500" value="5" required></label><button class="button secondary" type="submit">Tambah hadiah</button></form></article>
       </div>
       <article class="setup-card team-card" data-admin-only><div class="setup-card-heading"><span class="setup-icon">👨‍👩‍👧‍👦</span><div><h3>Akses keluarga</h3><p>Undang orang tepercaya. Semua anggota melihat data keluarga yang sama; satu akun hanya terikat ke satu keluarga.</p></div></div><div class="invite-row"><label>Username anggota<input id="invite-username" minlength="3" maxlength="40" placeholder="mis. ayah" autocomplete="off"></label><label>Peran<select id="invite-role"><option value="member">Anggota</option><option value="admin">Admin keluarga</option></select></label><button id="invite-button" class="button secondary" type="button">Buat akun</button></div><div id="invite-result" class="invite-result" hidden></div></article>

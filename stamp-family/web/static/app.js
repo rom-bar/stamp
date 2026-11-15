@@ -38,6 +38,9 @@
   const reactionChoices = ['❤️', '👏', '😂', '🌟', '🤗', '👍'];
   const coloringCategories = window.STAMP_COLORING_CATEGORIES || [];
   const coloringTemplates = coloringCategories.flatMap(category => (category.templates || []).map(template => ({ ...template, category:category.name })));
+  const animalBank = window.STAMP_ANIMAL_BANK || [];
+  const animalGroupHints = { mammal:'Semua pilihan adalah mamalia.', bird:'Semua pilihan punya paruh dan sayap.', reptile:'Cari hewan yang kulitnya tidak berbulu; ada yang hidup di darat atau air.', marine:'Semua pilihan hidup di laut atau perairan.', bug:'Semua pilihan adalah hewan kecil; perhatikan bentuk tubuhnya.' };
+  let animalGame = { questions:[], index:0, score:0, answered:false, hinted:false };
   let activeColoringCategory = 'Semua';
 
   function openDB() {
@@ -187,6 +190,10 @@
         if (reward) state.redemptions.push({ id:p.id, childId:p.childId, rewardId:p.rewardId, cost:reward.goal, createdBy:profile.id, createdAt:now, pending:true });
         break;
       }
+      case 'reward.redeem.custom':
+        state.rewards.push({ id:p.rewardId, name:p.rewardName, description:'', goal:Number(p.cost), active:false, spontaneous:true });
+        state.redemptions.push({ id:p.redemptionId, childId:p.childId, rewardId:p.rewardId, cost:Number(p.cost), createdBy:profile.id, createdAt:now, pending:true });
+        break;
       case 'journal.add':
         state.journals.push({ id:p.id, date:p.date, title:p.title || '', body:p.body || '', drawing:p.drawing || '', media:p.media || [], activityId:p.activityId || '', createdBy:profile.id, createdByName:profile.username, createdAt:now, shared:true, pending:true });
         break;
@@ -243,7 +250,9 @@
   }
   function fillSelects(state) {
     const children = state.children || [];
-    const reasons = state.reasons.filter(x => x.active !== false);
+    const allReasons = state.reasons.filter(x => x.active !== false);
+    const reasonQuery = ($('#give-reason-search')?.value || '').trim().toLocaleLowerCase('id-ID');
+    const reasons = reasonQuery ? allReasons.filter(x => x.name.toLocaleLowerCase('id-ID').includes(reasonQuery)) : allReasons;
     const fill = (selector, values, label, placeholder) => {
       $$(selector).forEach(el => {
         const old = el.value;
@@ -252,7 +261,9 @@
       });
     };
     fill('[data-child-select]', children, x => x.name, children.length ? 'Pilih anak' : 'Tambahkan anak dulu');
-    fill('[data-reason-select]', reasons, x => `${x.emoji || '⭐'} ${x.name}`, reasons.length ? 'Pilih alasan' : 'Tambahkan alasan dulu');
+    fill('[data-reason-select]', reasons, x => `${x.emoji || '⭐'} ${x.name}`, reasons.length ? 'Pilih alasan' : 'Tidak ada alasan yang cocok');
+    const noReasonMatch = $('#give-reason-empty');
+    if (noReasonMatch) noReasonMatch.hidden = !reasonQuery || reasons.length > 0;
   }
   function render() {
     const state = projected();
@@ -271,6 +282,7 @@
     renderDashboard(state);
     renderCollection(state);
     renderRewards(state);
+    renderReasonCatalog(state);
     renderSetup(state);
     renderJournal(state);
     renderActivities(state);
@@ -300,10 +312,9 @@
     $('#collection-total').textContent = `${list.length} stamp`;
     $('#collection-summary').innerHTML = `<div><strong>${esc(child?.name || '')}</strong><div class="muted" style="font-size:11px">${totals.earned} terkumpul · ${totals.spent} ditukar</div></div><span class="count-badge">${totals.available} tersedia</span>`;
     $('#stamp-list').innerHTML = list.length ? list.map(stamp => {
-      const design = state.designs.find(x => x.id === stamp.designId) || {emoji:'⭐',name:'Stamp'};
       const reason = state.reasons.find(x => x.id === stamp.reasonId) || {name:'Usaha hebat'};
-      const emoji = reason.emoji || design.emoji || '⭐';
-      return `<article class="stamp-row"><div class="stamp-emoji" style="background:${esc(design.color || '#f4ead7')}">${esc(emoji)}</div><div class="stamp-info"><strong>${esc(emoji)} Stamp${stamp.pending ? ' · menunggu sinkron' : ''}</strong><span>${esc(reason.name)}</span></div><span class="stamp-date">${esc(dateText(stamp.createdAt))}</span></article>`;
+      const pending = stamp.pending ? '<small class="stamp-pending">Menunggu sinkron</small>' : '';
+      return `<article class="stamp-row"><div class="stamp-info"><div class="stamp-labels"><strong class="stamp-category">Stamp</strong><span class="stamp-reason">${esc(reason.name)}</span></div>${pending}</div><span class="stamp-date">${esc(dateText(stamp.createdAt))}</span></article>`;
     }).join('') : '<div class="empty-state compact">Belum ada stamp di koleksi ini.</div>';
   }
   function renderRewards(state) {
@@ -325,12 +336,29 @@
       await enqueue('reward.redeem', { id:uuid(), childId, rewardId:reward.id });
       notify(`Hadiah “${reward.name}” ditukar.`, 'success');
     });
+    const history = (state.redemptions || []).filter(item => item.childId === childId).slice().sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    $('#redemption-list').innerHTML = history.map(item => {
+      const reward = state.rewards.find(x => x.id === item.rewardId) || {name:'Hadiah'};
+      const child = state.children.find(x => x.id === item.childId) || {name:'Anak'};
+      return `<article class="redemption-row"><div class="redemption-copy"><strong>${esc(reward.name)}</strong><span>${esc(child.name)} · ${Number(item.cost || 0)} stamp${item.pending ? ' · menunggu sinkron' : ''}</span></div><time class="redemption-date">${esc(dateText(item.createdAt))}</time></article>`;
+    }).join('');
+    $('#redemption-empty').hidden = history.length > 0;
   }
   function renderSetup(state) {
     const item = (icon, name, detail='') => `<div class="managed-item"><span>${icon} ${esc(name)}</span><span>${esc(detail)}</span></div>`;
     $('#setup-children').innerHTML = state.children.length ? state.children.map(x => item('●',x.name,'Anak')).join('') : '<span class="muted" style="font-size:11px">Belum ada anak.</span>';
-    $('#setup-reasons').innerHTML = state.reasons.length ? state.reasons.map(x => item(x.emoji||'⭐',x.name,'Alasan')).join('') : '<span class="muted" style="font-size:11px">Belum ada alasan.</span>';
     $('#setup-rewards').innerHTML = state.rewards.length ? state.rewards.map(x => item('🎁',x.name,`${x.goal} stamp`)).join('') : '<span class="muted" style="font-size:11px">Belum ada hadiah.</span>';
+  }
+  function renderReasonCatalog(state) {
+    const root = $('#reason-list');
+    if (!root) return;
+    const reasons = (state.reasons || []).filter(x => x.active !== false);
+    const query = ($('#reason-list-search')?.value || '').trim().toLocaleLowerCase('id-ID');
+    const filtered = query ? reasons.filter(x => x.name.toLocaleLowerCase('id-ID').includes(query)) : reasons;
+    $('#reason-count').textContent = query ? `${filtered.length} dari ${reasons.length} alasan` : `${reasons.length} alasan`;
+    root.innerHTML = filtered.length
+      ? filtered.map(x => `<article class="reason-row"><span class="reason-emoji" aria-hidden="true">${esc(x.emoji || '⭐')}</span><strong>${esc(x.name)}</strong></article>`).join('')
+      : `<div class="empty-state compact">${query ? 'Alasan yang cocok belum ditemukan.' : 'Belum ada alasan stamp. Admin dapat menambahkan alasan pertama di bawah.'}</div>`;
   }
   function journalDateLabel(value) {
     const date = new Date(`${value}T12:00:00`);
@@ -441,7 +469,7 @@
     root.innerHTML = `<div class="weekly-memory-mark" aria-hidden="true">✦</div><div class="weekly-memory-copy"><p class="eyebrow">MEMORI 7 HARI TERAKHIR</p><h3>${entries.length ? `${entries.length} ${entries.length === 1 ? 'kenangan' : 'kenangan'} tersimpan` : 'Yuk simpan satu cerita kecil'}</h3><p>${entries.length ? `${days} hari terisi · ${shared} dibagikan bersama keluarga. Terbaru: ${esc(headline)}.` : 'Tulisan atau gambar bertanggalmu akan dirangkum di sini.'}</p></div><span class="weekly-memory-range">${esc(weekStart.slice(5))}—${esc(today.slice(5))}</span>`;
   }
   function switchTab(name) {
-    const navTab = name === 'give' ? 'stamp' : (name === 'more' || name === 'setup' ? 'more' : 'home');
+    const navTab = name === 'give' ? 'stamp' : (['more','setup','reasons'].includes(name) ? 'more' : 'home');
     $$('[data-bottom-tab]').forEach(btn => {
       const active = btn.dataset.bottomTab === navTab;
       btn.classList.toggle('active', active);
@@ -457,6 +485,69 @@
     }
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+  }
+  function shuffleItems(items) {
+    const shuffled = [...items];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }
+  function startAnimalGame() {
+    if (animalBank.length < 100) {
+      $('#animal-game').innerHTML = '<div class="empty-state">Bank gambar hewan belum lengkap. Muat ulang halaman saat tersambung.</div>';
+      return;
+    }
+    animalGame = { questions:shuffleItems(animalBank).slice(0, 10), index:0, score:0, answered:false, hinted:false };
+    renderAnimalQuestion();
+  }
+  function renderAnimalQuestion() {
+    const root = $('#animal-game');
+    if (animalGame.index >= animalGame.questions.length) {
+      const score = animalGame.score;
+      const note = score >= 8 ? 'Hebat! Kamu jeli melihat perbedaan.' : score >= 5 ? 'Bagus! Coba satu babak lagi untuk menambah skor.' : 'Terus berlatih—setiap gambar punya petunjuk.';
+      root.innerHTML = `<div class="animal-result"><svg viewBox="0 0 72 72" aria-hidden="true"><use href="/static/animal-atlas.svg#animal-1F98A"></use></svg><h3>Babak selesai</h3><p class="animal-result-score">${score} dari 10 benar</p><p>${note}</p><button id="animal-game-restart" class="button primary" type="button">Main lagi</button></div>`;
+      return;
+    }
+    const question = animalGame.questions[animalGame.index];
+    const group = animalBank.filter(item => item.group === question.group && item.code !== question.code);
+    const choices = shuffleItems([question, ...shuffleItems(group).slice(0, 3)]);
+    animalGame.answered = false;
+    animalGame.hinted = false;
+    const questionNumber = animalGame.index + 1;
+    const progress = Math.round((animalGame.index / animalGame.questions.length) * 100);
+    root.innerHTML = `<div class="animal-progress-row"><span>Soal ${questionNumber} dari 10</span><span>Skor ${animalGame.score}</span></div><div class="animal-progress" role="progressbar" aria-label="Progres babak" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${animalGame.index}"><span style="width:${progress}%"></span></div><div class="animal-question-card"><svg class="animal-question-image" viewBox="0 0 72 72" role="img" aria-label="Ilustrasi hewan untuk ditebak"><use href="/static/animal-atlas.svg#animal-${esc(question.code)}"></use></svg><div><h3 id="animal-question-title" tabindex="-1">Hewan apakah ini?</h3><p>Pilih nama yang cocok dengan gambar.</p></div></div><div class="animal-hint-row"><button id="animal-hint-toggle" class="button secondary" type="button">Minta petunjuk</button><p id="animal-hint-text" hidden></p></div><div class="animal-options" role="group" aria-labelledby="animal-question-title">${choices.map(item => `<button class="animal-answer" type="button" data-animal-answer="${esc(item.code)}">${esc(item.name)}</button>`).join('')}</div><p id="animal-feedback" class="animal-feedback" role="status" aria-live="polite"></p><button id="animal-next" class="button primary" type="button" hidden>${questionNumber === 10 ? 'Lihat hasil' : 'Lanjut'}</button>`;
+  }
+  function answerAnimalQuestion(code) {
+    if (animalGame.answered) return;
+    const question = animalGame.questions[animalGame.index];
+    if (!question) return;
+    animalGame.answered = true;
+    const correct = code === question.code;
+    if (correct) animalGame.score++;
+    $$('[data-animal-answer]', $('#animal-game')).forEach(button => {
+      button.disabled = true;
+      if (button.dataset.animalAnswer === question.code) button.classList.add('correct');
+      else if (button.dataset.animalAnswer === code) button.classList.add('incorrect');
+    });
+    $('#animal-feedback').textContent = correct ? 'Tepat! Jawabanmu benar.' : `Belum tepat. Jawabannya ${question.name}.`;
+    $('#animal-feedback').classList.toggle('success', correct);
+    $('#animal-feedback').classList.toggle('error', !correct);
+    $('#animal-next').hidden = false;
+  }
+  function showAnimalHint() {
+    if (animalGame.answered || animalGame.hinted) return;
+    const question = animalGame.questions[animalGame.index];
+    if (!question) return;
+    animalGame.hinted = true;
+    $('#animal-hint-text').textContent = animalGroupHints[question.group] || 'Amati bentuk tubuh dan tempat hidupnya.';
+    $('#animal-hint-text').hidden = false;
+    const wrongChoices = $$('[data-animal-answer]', $('#animal-game')).filter(button => button.dataset.animalAnswer !== question.code);
+    const eliminated = shuffleItems(wrongChoices).slice(0, 1)[0];
+    if (eliminated) { eliminated.disabled = true; eliminated.classList.add('eliminated'); }
+    $('#animal-hint-toggle').disabled = true;
+    $('#animal-hint-toggle').textContent = 'Petunjuk dipakai';
   }
   async function enqueueMany(items) {
     const operations = items.map(item => ({ id:uuid(), kind:item.kind, payload:item.payload, createdAt:new Date().toISOString() }));
@@ -1196,6 +1287,11 @@
   initializeColoringCanvas();
 
   document.addEventListener('click', event => {
+    if (event.target.closest('#animal-game-start, #animal-game-restart')) { startAnimalGame(); return; }
+    if (event.target.closest('#animal-hint-toggle')) { showAnimalHint(); return; }
+    if (event.target.closest('#animal-next')) { animalGame.index++; renderAnimalQuestion(); $('#animal-question-title')?.focus({ preventScroll:true }); return; }
+    const animalAnswer = event.target.closest('[data-animal-answer]');
+    if (animalAnswer) { answerAnimalQuestion(animalAnswer.dataset.animalAnswer); return; }
     const btn = event.target.closest('[data-tab], [data-open-tab]');
     if (btn) { switchTab(btn.dataset.tab || btn.dataset.openTab); return; }
     const calendarDate = event.target.closest('[data-calendar-date]');
@@ -1282,6 +1378,10 @@
       notify('Jawaban tantangan harus dibagikan agar keluarga dapat ikut serta.', 'error');
     }
   });
+  document.addEventListener('input', event => {
+    if (event.target.matches('#give-reason-search') && snapshot) fillSelects(projected());
+    if (event.target.matches('#reason-list-search') && snapshot) renderReasonCatalog(projected());
+  });
   $$('[data-create-form]').forEach(form => form.addEventListener('submit', async event => {
     event.preventDefault();
     if (profile?.role !== 'admin') { notify('Hanya admin keluarga yang dapat mengubah pengaturan.', 'error'); return; }
@@ -1289,6 +1389,14 @@
     const payload = { id:uuid() };
     for (const [key,value] of data.entries()) payload[key] = value;
     if (form.dataset.createForm === 'reward.add') payload.goal = Number(payload.goal);
+    if (form.dataset.createForm === 'reason.add') {
+      payload.name = String(payload.name || '').replace(/\r\n?/g, ' ').trim();
+      if ((projected()?.reasons || []).some(reason => reason.name === payload.name)) {
+        notify('Nama alasan ini sudah digunakan. Coba nama lain.', 'error');
+        form.querySelector('input[name="name"]')?.focus();
+        return;
+      }
+    }
     await enqueue(form.dataset.createForm, payload);
     form.reset();
     const colorInput = form.querySelector('input[type=color]'); if (colorInput) colorInput.value = '#f2b66d';
@@ -1421,6 +1529,25 @@
     } finally {
       if (submitButton) submitButton.disabled = false;
     }
+  });
+  $('#custom-redeem-form')?.addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector('button[type="submit"]');
+    if (button.disabled) return;
+    const data = new FormData(form);
+    const payload = { id:uuid(), redemptionId:uuid(), rewardId:uuid(), childId:$('#reward-child').value, rewardName:String(data.get('rewardName') || '').trim(), cost:Number(data.get('cost')) };
+    const totals = payload.childId ? childTotals(projected(), payload.childId) : { available:0 };
+    if (!payload.childId) { notify('Pilih anak sebelum menukar hadiah.', 'error'); return; }
+    if (!payload.rewardName || !Number.isInteger(payload.cost) || payload.cost < 1 || payload.cost > 500) { notify('Isi nama hadiah dan jumlah stamp antara 1–500.', 'error'); return; }
+    if (totals.available < payload.cost) { notify(`Stamp belum cukup. Tersedia ${totals.available} stamp.`, 'error'); return; }
+    button.disabled = true;
+    try {
+      await enqueue('reward.redeem.custom', payload);
+      form.reset();
+      notify(`Hadiah “${payload.rewardName}” ditukar.`, 'success');
+    } catch (_) { notify('Hadiah belum berhasil ditukar. Coba lagi.', 'error'); }
+    finally { button.disabled = false; }
   });
   $('#invite-button')?.addEventListener('click', async () => {
     const username = $('#invite-username').value.trim();

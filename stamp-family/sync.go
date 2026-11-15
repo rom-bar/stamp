@@ -395,6 +395,14 @@ func (a *app) applyOperation(u userSession, op syncOperation) error {
 		if name == "" {
 			return errors.New("nama alasan wajib diisi")
 		}
+		var existingReason int
+		err = tx.QueryRow(`SELECT 1 FROM reasons WHERE family_id=? AND name=? COLLATE BINARY`, u.FamilyID, name).Scan(&existingReason)
+		if err == nil {
+			return errors.New("nama alasan sudah digunakan di keluarga ini")
+		}
+		if err != sql.ErrNoRows {
+			return err
+		}
 		if emoji == "" {
 			emoji = "⭐"
 		}
@@ -551,6 +559,63 @@ func (a *app) applyOperation(u userSession, op syncOperation) error {
 			return errors.New("stamp belum cukup untuk menukar hadiah")
 		}
 		_, execErr = tx.Exec(`INSERT INTO redemptions(id,family_id,child_id,reward_id,cost,created_by,created_at) VALUES(?,?,?,?,?,?,?)`, entityID, u.FamilyID, child, reward, goal, u.ID, now)
+	case "reward.redeem.custom":
+		child := str(p["childId"])
+		rewardName := cleanText(str(p["rewardName"]), 80)
+		rewardID := str(p["rewardId"])
+		redemptionID := str(p["redemptionId"])
+		var cost int
+		switch value := p["cost"].(type) {
+		case int:
+			cost = value
+		case int64:
+			if value < 1 || value > 500 {
+				return errors.New("biaya stamp harus 1–500")
+			}
+			cost = int(value)
+		case float64:
+			if value < 1 || value > 500 || value != float64(int(value)) {
+				return errors.New("biaya stamp harus bilangan bulat 1–500")
+			}
+			cost = int(value)
+		default:
+			return errors.New("biaya stamp harus berupa angka bulat")
+		}
+		if !belongs(tx, "children", child, u.FamilyID) {
+			return errors.New("anak tidak ditemukan di keluarga ini")
+		}
+		if rewardName == "" {
+			return errors.New("nama hadiah wajib diisi")
+		}
+		if cost < 1 || cost > 500 {
+			return errors.New("biaya stamp harus 1–500")
+		}
+		if rewardID == "" {
+			rewardID, err = randomID()
+			if err != nil {
+				return err
+			}
+		}
+		if redemptionID == "" {
+			redemptionID, err = randomID()
+			if err != nil {
+				return err
+			}
+		}
+		var earned, spent int
+		if err = tx.QueryRow(`SELECT COUNT(*) FROM stamps WHERE family_id=? AND child_id=?`, u.FamilyID, child).Scan(&earned); err != nil {
+			return err
+		}
+		if err = tx.QueryRow(`SELECT COALESCE(SUM(cost),0) FROM redemptions WHERE family_id=? AND child_id=?`, u.FamilyID, child).Scan(&spent); err != nil {
+			return err
+		}
+		if earned-spent < cost {
+			return errors.New("stamp belum cukup untuk menukar hadiah")
+		}
+		if _, execErr = tx.Exec(`INSERT INTO rewards(id,family_id,name,description,goal,active) VALUES(?,?,?,?,?,0)`, rewardID, u.FamilyID, rewardName, "", cost); execErr != nil {
+			break
+		}
+		_, execErr = tx.Exec(`INSERT INTO redemptions(id,family_id,child_id,reward_id,cost,created_by,created_at) VALUES(?,?,?,?,?,?,?)`, redemptionID, u.FamilyID, child, rewardID, cost, u.ID, now)
 	default:
 		return errors.New("jenis operasi tidak didukung")
 	}

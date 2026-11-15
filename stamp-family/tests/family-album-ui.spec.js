@@ -26,7 +26,7 @@ async function assertSquareHomeTiles(page, width, height) {
     const rect = card.getBoundingClientRect();
     return { width: rect.width, height: rect.height };
   }));
-  expect(dimensions, `${width}px home tile count`).toHaveLength(5);
+  expect(dimensions, `${width}px home tile count`).toHaveLength(6);
   for (const [index, rect] of dimensions.entries()) {
     expect(Math.abs(rect.width - rect.height), `${width}px tile ${index + 1} should stay square`)
       .toBeLessThanOrEqual(1);

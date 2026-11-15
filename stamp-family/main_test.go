@@ -72,6 +72,36 @@ func TestFamilyStarterCatalogHasFortyOneReasonsAndIsIdempotent(t *testing.T) {
 	}
 }
 
+func TestReasonNamesAreUniqueWithinFamilyWithCaseSensitiveMatching(t *testing.T) {
+	a := testDB(t)
+	familyA := insertTestFamily(t, a, "family-a", "Family A")
+	familyB := insertTestFamily(t, a, "family-b", "Family B")
+
+	if err := a.applyOperation(familyA, operation("reason-add-1", "reason.add", map[string]any{
+		"id": "reason-a-1", "name": "Membantu", "emoji": "⭐",
+	})); err != nil {
+		t.Fatalf("create initial reason: %v", err)
+	}
+
+	if err := a.applyOperation(familyA, operation("reason-add-2", "reason.add", map[string]any{
+		"id": "reason-a-2", "name": "Membantu", "emoji": "🌱",
+	})); err == nil || err.Error() != "nama alasan sudah digunakan di keluarga ini" {
+		t.Fatalf("exact duplicate should be rejected with clear Indonesian error, got %v", err)
+	}
+
+	if err := a.applyOperation(familyA, operation("reason-add-3", "reason.add", map[string]any{
+		"id": "reason-a-3", "name": "membantu", "emoji": "🌱",
+	})); err != nil {
+		t.Fatalf("case variant should be accepted: %v", err)
+	}
+
+	if err := a.applyOperation(familyB, operation("reason-add-4", "reason.add", map[string]any{
+		"id": "reason-b-1", "name": "Membantu", "emoji": "🌱",
+	})); err != nil {
+		t.Fatalf("same reason name should be accepted in another family: %v", err)
+	}
+}
+
 func TestOperationReplayIsIdempotentAndFamilyScoped(t *testing.T) {
 	a := testDB(t)
 	u1 := insertTestFamily(t, a, "family-a", "Family A")
@@ -147,6 +177,109 @@ func TestStampAwardAndRewardCannotOverdraw(t *testing.T) {
 	}
 	if len(s.Stamps) != 2 || len(s.Redemptions) != 1 {
 		t.Fatalf("expected 2 stamps and 1 redemption; got %d and %d", len(s.Stamps), len(s.Redemptions))
+	}
+}
+
+func TestCustomRewardRedemptionCreatesInactiveRewardAndHistory(t *testing.T) {
+	a := testDB(t)
+	u := insertTestFamily(t, a, "family-custom", "Custom Family")
+	u.Role = "member"
+	for _, q := range []string{
+		`INSERT INTO children(id,family_id,name,color,created_at) VALUES('child-custom','family-custom','Ari','#f2b66d','2026-01-01T00:00:00Z')`,
+		`INSERT INTO reasons(id,family_id,name,emoji,active) VALUES('reason-custom','family-custom','Membantu','⭐',1)`,
+		`INSERT INTO stamp_designs(id,family_id,name,emoji,color,active) VALUES('design-custom','family-custom','Bintang','⭐','#f2b66d',1)`,
+	} {
+		if _, err := a.db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for i := 0; i < 3; i++ {
+		if _, err := a.db.Exec(`INSERT INTO stamps(id,family_id,child_id,reason_id,design_id,created_by,created_at) VALUES(?,?,?,?,?,?,?)`, "stamp-custom-"+string(rune('a'+i)), u.FamilyID, "child-custom", "reason-custom", "design-custom", u.ID, timestamp()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if err := a.applyOperation(u, operation("custom-redeem-op", "reward.redeem.custom", map[string]any{
+		"id": "ignored-entity-id", "rewardId": "reward-custom", "redemptionId": "redemption-custom",
+		"childId": "child-custom", "rewardName": "  Movie night  ", "cost": 2,
+	})); err != nil {
+		t.Fatalf("member should be able to redeem a custom reward: %v", err)
+	}
+
+	var name, description string
+	var goal, active int
+	if err := a.db.QueryRow(`SELECT name,description,goal,active FROM rewards WHERE id=? AND family_id=?`, "reward-custom", u.FamilyID).Scan(&name, &description, &goal, &active); err != nil {
+		t.Fatal(err)
+	}
+	if name != "Movie night" || description != "" || goal != 2 || active != 0 {
+		t.Fatalf("custom reward was stored incorrectly: name=%q description=%q goal=%d active=%d", name, description, goal, active)
+	}
+	var childID, rewardID string
+	var cost int
+	if err := a.db.QueryRow(`SELECT child_id,reward_id,cost FROM redemptions WHERE id=? AND family_id=?`, "redemption-custom", u.FamilyID).Scan(&childID, &rewardID, &cost); err != nil {
+		t.Fatal(err)
+	}
+	if childID != "child-custom" || rewardID != "reward-custom" || cost != 2 {
+		t.Fatalf("custom redemption history was stored incorrectly: child=%q reward=%q cost=%d", childID, rewardID, cost)
+	}
+}
+
+func TestCustomRewardRedemptionRejectsInsufficientFundsAndFractionalCost(t *testing.T) {
+	a := testDB(t)
+	u := insertTestFamily(t, a, "family-insufficient", "Insufficient Family")
+	for _, q := range []string{
+		`INSERT INTO children(id,family_id,name,color,created_at) VALUES('child-insufficient','family-insufficient','Ari','#f2b66d','2026-01-01T00:00:00Z')`,
+		`INSERT INTO reasons(id,family_id,name,emoji,active) VALUES('reason-insufficient','family-insufficient','Membantu','⭐',1)`,
+		`INSERT INTO stamp_designs(id,family_id,name,emoji,color,active) VALUES('design-insufficient','family-insufficient','Bintang','⭐','#f2b66d',1)`,
+	} {
+		if _, err := a.db.Exec(q); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := a.db.Exec(`INSERT INTO stamps(id,family_id,child_id,reason_id,design_id,created_by,created_at) VALUES(?,?,?,?,?,?,?)`, "stamp-insufficient", u.FamilyID, "child-insufficient", "reason-insufficient", "design-insufficient", u.ID, timestamp()); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.applyOperation(u, operation("custom-insufficient-op", "reward.redeem.custom", map[string]any{
+		"rewardId": "reward-insufficient", "redemptionId": "redemption-insufficient", "childId": "child-insufficient", "rewardName": "Too expensive", "cost": 2,
+	})); err == nil {
+		t.Fatal("custom reward should be rejected when the child lacks enough stamps")
+	}
+	if err := a.applyOperation(u, operation("custom-fraction-op", "reward.redeem.custom", map[string]any{
+		"rewardId": "reward-fraction", "redemptionId": "redemption-fraction", "childId": "child-insufficient", "rewardName": "Fractional", "cost": 1.5,
+	})); err == nil {
+		t.Fatal("custom reward should reject fractional stamp costs")
+	}
+	var rewards, redemptions int
+	if err := a.db.QueryRow(`SELECT COUNT(*) FROM rewards WHERE family_id=?`, u.FamilyID).Scan(&rewards); err != nil {
+		t.Fatal(err)
+	}
+	if err := a.db.QueryRow(`SELECT COUNT(*) FROM redemptions WHERE family_id=?`, u.FamilyID).Scan(&redemptions); err != nil {
+		t.Fatal(err)
+	}
+	if rewards != 0 || redemptions != 0 {
+		t.Fatalf("failed custom redemption must not write history: rewards=%d redemptions=%d", rewards, redemptions)
+	}
+}
+
+func TestCustomRewardRedemptionRejectsCrossFamilyChild(t *testing.T) {
+	a := testDB(t)
+	familyA := insertTestFamily(t, a, "family-custom-a", "Custom A")
+	familyB := insertTestFamily(t, a, "family-custom-b", "Custom B")
+	if _, err := a.db.Exec(`INSERT INTO children(id,family_id,name,color,created_at) VALUES(?,?,?,?,?)`, "child-custom-b", familyB.FamilyID, "Bima", "#f2b66d", timestamp()); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := a.applyOperation(familyA, operation("custom-cross-family-op", "reward.redeem.custom", map[string]any{
+		"rewardId": "reward-cross-family", "redemptionId": "redemption-cross-family", "childId": "child-custom-b", "rewardName": "Should fail", "cost": 1,
+	})); err == nil {
+		t.Fatal("custom reward redemption should reject a child from another family")
+	}
+	var count int
+	if err := a.db.QueryRow(`SELECT COUNT(*) FROM rewards WHERE family_id=?`, familyA.FamilyID).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	if count != 0 {
+		t.Fatalf("cross-family custom redemption must not create a reward, got %d", count)
 	}
 }
 
