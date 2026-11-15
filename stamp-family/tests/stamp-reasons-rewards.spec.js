@@ -25,6 +25,8 @@ async function addStamps(page, prefix, childId, reasonId, count) {
 test.describe('stamp reasons, rewards, and animal quiz', () => {
   test('manages searchable reasons, separates collection labels, and records regular and spontaneous redemptions', async ({ page }) => {
     await page.setViewportSize({ width:390, height:844 });
+    const pageErrors = [];
+    page.on('pageerror', error => pageErrors.push(error.message));
     await login(page, 'family_b');
     const prefix = `family-flow-${Date.now()}`;
     await seedStampCatalog(page, prefix);
@@ -32,6 +34,18 @@ test.describe('stamp reasons, rewards, and animal quiz', () => {
     await page.locator('[data-bottom-tab="more"]').click();
     await page.locator('.more-grid [data-tab="reasons"]').click();
     const reasonName = `${prefix} reason`;
+    await expect(page.locator('#reason-list-search')).toHaveValue('');
+    await expect(page.locator('#reason-list')).toContainText(reasonName);
+    const sectionOrder = await page.locator('#panel-reasons').evaluate(panel => {
+      const create = panel.querySelector('[data-create-form="reason.add"]');
+      const filter = panel.querySelector('.reason-filter-section');
+      const list = panel.querySelector('#reason-list');
+      return {
+        createBeforeFilter:Boolean(create.compareDocumentPosition(filter) & Node.DOCUMENT_POSITION_FOLLOWING),
+        filterBeforeList:Boolean(filter.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING),
+      };
+    });
+    expect(sectionOrder).toEqual({ createBeforeFilter:true, filterBeforeList:true });
     await page.locator('#reason-list-search').fill(prefix);
     await expect(page.locator('#reason-list .reason-row')).toHaveCount(1);
     await expect(page.locator('#reason-list')).toContainText(reasonName);
@@ -84,19 +98,32 @@ test.describe('stamp reasons, rewards, and animal quiz', () => {
     expect(await page.evaluate(() => window.__reasonXss || 0)).toBe(0);
 
     await page.locator('[data-bottom-tab="stamp"]').click();
-    await page.locator('#give-reason-search').fill(prefix);
-    const reasonSelect = page.locator('#give-form [data-reason-select]');
-    await expect(reasonSelect.locator('option')).toHaveCount(3);
-    await expect(reasonSelect).toContainText(reasonName);
+    const picker = page.getByRole('combobox', { name:'Cari dan pilih alasan' });
+    await expect(page.locator('#give-form select')).toHaveCount(1);
+    await expect(page.locator('#give-form input[type="search"]')).toHaveCount(1);
+    await picker.fill(prefix);
+    const reasonOptions = page.locator('#give-reason-options [role="option"]');
+    await expect(reasonOptions).toHaveCount(2);
+    await expect(page.getByRole('option', { name:reasonName, exact:true })).toHaveCount(1);
     await capture(page, 'stamp-add-reason-search-mobile.png');
-    await page.locator('#give-reason-search').fill('not-a-reason');
+    await picker.fill('not-a-reason');
     await expect(page.locator('#give-reason-empty')).toBeVisible();
-    await page.locator('#give-reason-search').fill('');
+    await expect(page.locator('#give-reason-selected')).toHaveValue('');
+    await picker.fill('img src=x');
+    await expect(page.getByRole('option', { name:xssName, exact:true })).toHaveCount(1);
+    await expect(page.locator('#give-reason-options img, #give-reason-options script')).toHaveCount(0);
+    expect(await page.evaluate(() => window.__reasonXss || 0)).toBe(0);
+    await picker.fill(reasonName);
+    await picker.press('ArrowDown');
+    await expect(picker).toHaveAttribute('aria-activedescendant', 'give-reason-option-0');
+    await picker.press('Enter');
+    await expect(picker).toHaveAttribute('aria-expanded', 'false');
+    const reasonId = await page.locator('#give-reason-selected').inputValue();
+    expect(reasonId).toBeTruthy();
 
     const childSelect = page.locator('#give-form [data-child-select]');
     await childSelect.selectOption({ label:`${prefix} child` });
     const childId = await childSelect.inputValue();
-    const reasonId = await reasonSelect.locator('option').evaluateAll((options, name) => options.find(option => option.textContent.trim().endsWith(name))?.value, reasonName);
     await addStamps(page, prefix, childId, reasonId, 4);
 
     await page.locator('[data-bottom-tab="home"]').click();
@@ -137,6 +164,7 @@ test.describe('stamp reasons, rewards, and animal quiz', () => {
     await expect(page.locator('#redemption-list .redemption-row')).toHaveCount(2);
     const phoneWidth = await page.evaluate(() => ({ viewport:innerWidth, page:document.documentElement.scrollWidth }));
     expect(phoneWidth.page).toBeLessThanOrEqual(phoneWidth.viewport + 1);
+    expect(pageErrors.filter(message => /Cannot set properties of null/.test(message))).toEqual([]);
     await page.setViewportSize({ width:1365, height:900 });
     const desktopWidth = await page.evaluate(() => ({ viewport:innerWidth, page:document.documentElement.scrollWidth }));
     expect(desktopWidth.page).toBeLessThanOrEqual(desktopWidth.viewport + 1);
@@ -150,14 +178,16 @@ test.describe('stamp reasons, rewards, and animal quiz', () => {
     await page.evaluate(async () => { await navigator.serviceWorker.ready; });
     await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout:20_000 }).toBe(true);
     const cache = await page.evaluate(async () => {
-      const shell = await caches.open('stamp-family-shell-v13');
+      const shell = await caches.open('stamp-family-shell-v14');
       return {
         bank:!!(await shell.match('/static/animal-bank.js')),
         atlas:!!(await shell.match('/static/animal-atlas.svg')),
+        app:!!(await shell.match('/static/app.js?v=20261115-reasons-1')),
       };
     });
     expect(cache.bank).toBe(true);
     expect(cache.atlas).toBe(true);
+    expect(cache.app).toBe(true);
 
     await page.context().setOffline(true);
     await page.reload();

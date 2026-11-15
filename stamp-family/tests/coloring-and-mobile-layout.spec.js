@@ -28,13 +28,16 @@ test.describe('mobile menu layout and coloring', () => {
     await seedStampCatalog(page, 'mobile-layout');
     const shellCache = await page.evaluate(async () => {
       await navigator.serviceWorker.ready;
-      const cache = await caches.open('stamp-family-shell-v13');
-      const script = await cache.match('/static/app.js');
+      const cache = await caches.open('stamp-family-shell-v14');
+      const script = await cache.match('/static/app.js?v=20261115-reasons-1');
+      const style = await cache.match('/static/app.css?v=20261115-reasons-1');
       const catalog = await cache.match('/static/coloring-templates.js');
-      return { keys:await caches.keys(), script:script ? await script.text() : '', catalog:catalog ? await catalog.text() : '' };
+      return { keys:await caches.keys(), script:script ? await script.text() : '', style:style ? await style.text() : '', catalog:catalog ? await catalog.text() : '' };
     });
-    expect(shellCache.keys).toContain('stamp-family-shell-v13');
+    expect(shellCache.keys).toContain('stamp-family-shell-v14');
     expect(shellCache.script).toContain('floodColoringArea');
+    expect(shellCache.script).toContain('renderReasonPicker');
+    expect(shellCache.style).toContain('.reason-picker-popup');
     expect(shellCache.catalog).toContain('Kucing');
     expect(shellCache.catalog).toContain('120 template');
 
