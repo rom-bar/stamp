@@ -6,11 +6,11 @@
   <meta name="theme-color" content="#f5efe3">
   <title>Buku Keluarga</title>
   <link rel="manifest" href="/manifest.json">
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v=20261115-reasons-1">
   <script src="/static/htmx.min.js" defer></script>
   <script src="/static/coloring-templates.js" defer></script>
   <script src="/static/animal-bank.js" defer></script>
-  <script src="/static/app.js" defer></script>
+  <script src="/static/app.js?v=20261115-reasons-1" defer></script>
 </head>
 <body class="app-page">
   <header class="topbar">
@@ -171,9 +171,18 @@
       <div class="section-heading"><div><p class="eyebrow">RAYAKAN USAHA MEREKA</p><h2>Beri stamp</h2></div></div>
       <form id="give-form" class="form-card">
         <label>Untuk anak<select name="childId" data-child-select required></select></label>
-        <label for="give-reason-search">Cari alasan<input id="give-reason-search" type="search" placeholder="Ketik nama alasan…" autocomplete="off"></label>
-        <label>Alasan<select name="reasonId" data-reason-select required></select></label>
-        <p id="give-reason-empty" class="form-hint" hidden>Tidak ada alasan yang cocok. Coba kata lain atau kelola alasan stamp.</p>
+        <div class="reason-picker">
+          <label id="give-reason-label" for="give-reason-search">Cari dan pilih alasan</label>
+          <div class="reason-picker-control">
+            <input id="give-reason-search" type="search" role="combobox" aria-autocomplete="list" aria-haspopup="listbox" aria-expanded="false" aria-controls="give-reason-options" aria-describedby="give-reason-help" placeholder="Ketik alasan atau pilih dari daftar…" autocomplete="off" required>
+            <input id="give-reason-selected" name="reasonId" data-reason-select type="hidden">
+            <div id="give-reason-popup" class="reason-picker-popup" hidden>
+              <div id="give-reason-options" class="reason-picker-listbox" role="listbox" aria-labelledby="give-reason-label"></div>
+              <p id="give-reason-empty" class="reason-picker-empty form-hint" role="status" aria-live="polite" hidden></p>
+            </div>
+          </div>
+          <p id="give-reason-help" class="form-hint">Pilih satu alasan dari daftar sebelum menambahkan stamp.</p>
+        </div>
         <button class="button primary full" type="submit">Tambahkan 1 stamp</button>
         <p class="form-hint">Emoji stamp otomatis mengikuti alasan yang dipilih. Pemberian stamp masuk ke riwayat koleksi anak.</p>
       </form>
@@ -204,16 +213,19 @@
       </section>
     </section>
     <section class="panel" id="panel-reasons">
-      <div class="section-heading"><div><h2>Alasan stamp</h2><p class="muted">Cari alasan yang sudah ada atau tambahkan alasan baru.</p></div><span id="reason-count" class="count-badge">0 alasan</span></div>
-      <label class="reason-search-label" for="reason-list-search">Cari alasan<input id="reason-list-search" type="search" placeholder="Ketik nama alasan…" autocomplete="off"></label>
-      <div id="reason-list" class="reason-list"></div>
+      <div class="section-heading"><div><h2>Alasan stamp</h2><p class="muted">Tambahkan alasan baru, lalu filter atau telusuri daftar keluarga.</p></div><span id="reason-count" class="count-badge">0 alasan</span></div>
       <form data-create-form="reason.add" data-admin-only class="compact-form reason-create-form">
-        <h3>Tambah alasan</h3>
+        <h3>Tambah alasan baru</h3>
         <label>Nama alasan<input name="name" maxlength="60" placeholder="mis. Berbagi dengan baik" required></label>
         <label>Emoji stamp<input name="emoji" value="⭐" maxlength="8" placeholder="⭐"></label>
         <button class="button secondary" type="submit">Tambah alasan</button>
       </form>
-      <div class="setup-note" data-member-only hidden>Hanya admin keluarga yang dapat menambah alasan stamp. Anda tetap dapat mencari dan memilih alasan saat memberi stamp.</div>
+      <div class="setup-note reason-member-note" data-member-only hidden>Hanya admin keluarga yang dapat menambah alasan stamp. Anda tetap dapat mencari dan memilih alasan saat memberi stamp.</div>
+      <div class="reason-filter-section">
+        <label class="reason-search-label" for="reason-list-search">Filter daftar alasan<input id="reason-list-search" type="search" placeholder="Cari nama alasan…" autocomplete="off"></label>
+        <p class="form-hint">Filter kosong menampilkan semua alasan.</p>
+      </div>
+      <div id="reason-list" class="reason-list"></div>
     </section>
     <section class="panel" id="panel-animal-game">
       <div class="section-heading"><div><h2>Tebak hewan</h2><p class="muted">Tebak 10 gambar dari bank 100 hewan. Pilihan yang mirip membuat permainan tetap menantang.</p></div></div>

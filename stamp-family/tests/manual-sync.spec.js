@@ -148,11 +148,16 @@ test('catalog and category filters survive offline reload on desktop and mobile'
   await page.evaluate(async () => { await navigator.serviceWorker.ready; });
   await expect.poll(() => page.evaluate(() => Boolean(navigator.serviceWorker.controller)), { timeout:12_000 }).toBe(true);
   const shell = await page.evaluate(async () => {
-    const cache = await caches.open('stamp-family-shell-v13');
-    return { catalog:!!(await cache.match('/static/coloring-templates.js')), script:!!(await cache.match('/static/app.js')) };
+    const cache = await caches.open('stamp-family-shell-v14');
+    return {
+      catalog:!!(await cache.match('/static/coloring-templates.js')),
+      script:!!(await cache.match('/static/app.js?v=20261115-reasons-1')),
+      style:!!(await cache.match('/static/app.css?v=20261115-reasons-1')),
+    };
   });
   expect(shell.catalog).toBe(true);
   expect(shell.script).toBe(true);
+  expect(shell.style).toBe(true);
 
   for (const viewport of [{ width:1365, height:900 }, { width:390, height:844 }]) {
     await page.setViewportSize(viewport);

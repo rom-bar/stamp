@@ -1,24 +1,26 @@
 const { test, expect } = require('@playwright/test');
 const { login, seedStampCatalog } = require('./helpers');
 
-async function selectByText(select, text) {
-  const option = select.locator('option').filter({ hasText: text }).last();
-  await select.selectOption(await option.getAttribute('value'));
+async function selectReason(form, name) {
+  const picker = form.getByRole('combobox', { name:'Cari dan pilih alasan' });
+  await picker.fill(name);
+  await form.getByRole('option', { name, exact:true }).click();
+  await expect(form.locator('[data-reason-select]')).not.toHaveValue('');
 }
 
 test.describe('stamp, reward, and admin controls', () => {
-  test('admin creates catalog, awards stamps, and redeems a reward', async ({ page }) => {
+  test('admin creates catalog, searches one reason field, awards stamps, and redeems a reward', async ({ page }) => {
     await login(page, 'family_a');
     await seedStampCatalog(page, 'stamp-flow');
 
     await page.locator('[data-tab=give]').click();
     const form = page.locator('#give-form');
-    await expect(form.locator('select')).toHaveCount(2);
+    await expect(form.locator('select')).toHaveCount(1);
     await expect(form.locator('[data-design-select]')).toHaveCount(0);
     await expect(form.locator('[data-child-select] option')).toHaveCount(2);
-    await expect(form.locator('[data-reason-select] option').filter({ hasText:'stamp-flow reason' })).toHaveCount(1);
+    await expect(form.getByRole('combobox', { name:'Cari dan pilih alasan' })).toBeVisible();
     await form.locator('[data-child-select]').selectOption({ label: 'stamp-flow child' });
-    await selectByText(form.locator('[data-reason-select]'), 'stamp-flow reason');
+    await selectReason(form, 'stamp-flow reason');
     await form.getByRole('button', { name: /tambahkan 1 stamp/i }).click();
     await expect(page.locator('#notice')).toContainText(/ditambahkan/i);
     await expect(page.locator('#stamp-celebration')).toBeVisible();
@@ -26,11 +28,12 @@ test.describe('stamp, reward, and admin controls', () => {
     await expect(page.locator('#celebration-detail')).toContainText('stamp-flow reason');
     await expect(form.locator('[data-child-select]')).toHaveValue('');
     await expect(form.locator('[data-reason-select]')).toHaveValue('');
+    await expect(form.getByRole('combobox', { name:'Cari dan pilih alasan' })).toHaveValue('');
     await page.locator('#stamp-celebration .celebration-close').click();
 
     await page.context().setOffline(true);
     await form.locator('[data-child-select]').selectOption({ label: 'stamp-flow child' });
-    await selectByText(form.locator('[data-reason-select]'), 'stamp-flow reason');
+    await selectReason(form, 'stamp-flow reason');
     await form.getByRole('button', { name: /tambahkan 1 stamp/i }).click();
     await expect(page.locator('#stamp-celebration')).toBeVisible();
     await expect(form.locator('[data-child-select]')).toHaveValue('');
@@ -88,4 +91,11 @@ test.describe('stamp, reward, and admin controls', () => {
     await expect(card.locator('script, img')).toHaveCount(0);
     expect(await page.evaluate(() => window.__xss || 0)).toBe(0);
   });
+});
+
+test('login no longer shows the first-admin terminal instructions', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByText(/Admin pertama\?|stamp-family create-admin/i)).toHaveCount(0);
+  await expect(page.locator('input[name=username]')).toBeVisible();
+  await expect(page.getByRole('button', { name:'Masuk' })).toBeVisible();
 });

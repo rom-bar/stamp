@@ -11,6 +11,10 @@
   let sessionRequired = false;
   let syncPromise = null;
   let manualSyncing = false;
+  let reasonPickerQuery = '';
+  let reasonPickerOpen = false;
+  let reasonPickerActiveIndex = -1;
+  let visibleReasonOptions = [];
   let lastSyncAt = null;
   let queueChain = Promise.resolve();
   let audioContext = null;
@@ -250,9 +254,6 @@
   }
   function fillSelects(state) {
     const children = state.children || [];
-    const allReasons = state.reasons.filter(x => x.active !== false);
-    const reasonQuery = ($('#give-reason-search')?.value || '').trim().toLocaleLowerCase('id-ID');
-    const reasons = reasonQuery ? allReasons.filter(x => x.name.toLocaleLowerCase('id-ID').includes(reasonQuery)) : allReasons;
     const fill = (selector, values, label, placeholder) => {
       $$(selector).forEach(el => {
         const old = el.value;
@@ -261,9 +262,114 @@
       });
     };
     fill('[data-child-select]', children, x => x.name, children.length ? 'Pilih anak' : 'Tambahkan anak dulu');
-    fill('[data-reason-select]', reasons, x => `${x.emoji || '⭐'} ${x.name}`, reasons.length ? 'Pilih alasan' : 'Tidak ada alasan yang cocok');
-    const noReasonMatch = $('#give-reason-empty');
-    if (noReasonMatch) noReasonMatch.hidden = !reasonQuery || reasons.length > 0;
+    renderReasonPicker(state);
+  }
+  function filteredReasonOptions(state) {
+    const reasons = (state?.reasons || []).filter(reason => reason.active !== false);
+    const query = reasonPickerQuery.trim().toLocaleLowerCase('id-ID');
+    return query
+      ? reasons.filter(reason => String(reason.name || '').toLocaleLowerCase('id-ID').includes(query))
+      : reasons;
+  }
+  function renderReasonPicker(state) {
+    const input = $('#give-reason-search');
+    const selected = $('#give-reason-selected');
+    const popup = $('#give-reason-popup');
+    const list = $('#give-reason-options');
+    const empty = $('#give-reason-empty');
+    if (!input || !selected || !popup || !list) return;
+    const reasons = (state?.reasons || []).filter(reason => reason.active !== false);
+    if (selected.value && !reasons.some(reason => reason.id === selected.value)) {
+      selected.value = '';
+      input.value = '';
+      reasonPickerQuery = '';
+    }
+    const options = filteredReasonOptions(state);
+    visibleReasonOptions = options;
+    if (reasonPickerActiveIndex >= options.length) reasonPickerActiveIndex = options.length - 1;
+    if (!options.length) reasonPickerActiveIndex = -1;
+    list.innerHTML = options.map((reason, index) => `<button id="give-reason-option-${index}" class="reason-picker-option${index === reasonPickerActiveIndex ? ' is-active' : ''}" type="button" role="option" aria-selected="${reason.id === selected.value}" data-reason-option="${esc(reason.id)}"><span class="reason-picker-emoji" aria-hidden="true">${esc(reason.emoji || '⭐')}</span><span>${esc(reason.name)}</span></button>`).join('');
+    list.hidden = options.length === 0;
+    popup.hidden = !reasonPickerOpen;
+    input.setAttribute('aria-expanded', String(reasonPickerOpen));
+    const activeDescendant = reasonPickerOpen && reasonPickerActiveIndex >= 0 ? `give-reason-option-${reasonPickerActiveIndex}` : '';
+    if (activeDescendant) input.setAttribute('aria-activedescendant', activeDescendant);
+    else input.removeAttribute('aria-activedescendant');
+    input.setCustomValidity(selected.value ? '' : 'Pilih satu alasan dari daftar.');
+    if (empty) {
+      const message = !reasonPickerOpen ? '' : !reasons.length
+        ? 'Belum ada alasan stamp. Admin keluarga dapat menambahkannya di menu Alasan stamp.'
+        : !options.length ? 'Tidak ada alasan yang cocok. Coba kata lain.' : '';
+      empty.textContent = message;
+      empty.hidden = !message;
+    }
+  }
+  function openReasonPicker() {
+    const input = $('#give-reason-search');
+    const selected = $('#give-reason-selected');
+    if (!input) return;
+    reasonPickerQuery = selected?.value ? '' : input.value;
+    reasonPickerOpen = true;
+    reasonPickerActiveIndex = -1;
+    renderReasonPicker(projected());
+  }
+  function handleReasonPickerInput(input) {
+    const selected = $('#give-reason-selected');
+    if (selected) selected.value = '';
+    reasonPickerQuery = input.value;
+    reasonPickerOpen = true;
+    reasonPickerActiveIndex = -1;
+    renderReasonPicker(projected());
+  }
+  function handleReasonPickerKeydown(event) {
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) {
+      if (!reasonPickerOpen) openReasonPicker();
+      const options = filteredReasonOptions(projected());
+      if (!options.length) return;
+      event.preventDefault();
+      if (event.key === 'Home') reasonPickerActiveIndex = 0;
+      else if (event.key === 'End') reasonPickerActiveIndex = options.length - 1;
+      else if (event.key === 'ArrowDown') reasonPickerActiveIndex = reasonPickerActiveIndex < 0 ? 0 : (reasonPickerActiveIndex + 1) % options.length;
+      else reasonPickerActiveIndex = reasonPickerActiveIndex < 0 ? options.length - 1 : (reasonPickerActiveIndex - 1 + options.length) % options.length;
+      renderReasonPicker(projected());
+      return;
+    }
+    if (event.key === 'Enter' && reasonPickerOpen) {
+      const options = filteredReasonOptions(projected());
+      const index = reasonPickerActiveIndex >= 0 ? reasonPickerActiveIndex : options.length === 1 ? 0 : -1;
+      if (index >= 0 && options[index]) {
+        event.preventDefault();
+        selectReason(options[index]);
+      }
+      return;
+    }
+    if (event.key === 'Escape' && reasonPickerOpen) {
+      event.preventDefault();
+      reasonPickerOpen = false;
+      reasonPickerActiveIndex = -1;
+      renderReasonPicker(projected());
+    }
+  }
+  function selectReason(reason) {
+    const input = $('#give-reason-search');
+    const selected = $('#give-reason-selected');
+    if (!input || !selected) return;
+    selected.value = reason.id;
+    input.value = `${reason.emoji || '⭐'} ${reason.name}`;
+    reasonPickerQuery = '';
+    reasonPickerOpen = false;
+    reasonPickerActiveIndex = -1;
+    renderReasonPicker(projected());
+  }
+  function resetReasonPicker() {
+    const input = $('#give-reason-search');
+    const selected = $('#give-reason-selected');
+    if (input) input.value = '';
+    if (selected) selected.value = '';
+    reasonPickerQuery = '';
+    reasonPickerOpen = false;
+    reasonPickerActiveIndex = -1;
+    renderReasonPicker(projected());
   }
   function render() {
     const state = projected();
@@ -1379,8 +1485,24 @@
     }
   });
   document.addEventListener('input', event => {
-    if (event.target.matches('#give-reason-search') && snapshot) fillSelects(projected());
+    if (event.target.matches('#give-reason-search') && snapshot) handleReasonPickerInput(event.target);
     if (event.target.matches('#reason-list-search') && snapshot) renderReasonCatalog(projected());
+  });
+  $('#give-reason-search')?.addEventListener('focus', openReasonPicker);
+  $('#give-reason-search')?.addEventListener('keydown', handleReasonPickerKeydown);
+  $('#give-reason-search')?.addEventListener('blur', () => window.setTimeout(() => {
+    reasonPickerOpen = false;
+    reasonPickerActiveIndex = -1;
+    renderReasonPicker(projected());
+  }, 120));
+  $('#give-reason-options')?.addEventListener('pointerdown', event => {
+    if (event.target.closest('[data-reason-option]')) event.preventDefault();
+  });
+  $('#give-reason-options')?.addEventListener('click', event => {
+    const option = event.target.closest('[data-reason-option]');
+    if (!option) return;
+    const reason = visibleReasonOptions.find(item => item.id === option.dataset.reasonOption);
+    if (reason) selectReason(reason);
   });
   $$('[data-create-form]').forEach(form => form.addEventListener('submit', async event => {
     event.preventDefault();
@@ -1521,6 +1643,7 @@
     try {
       await enqueue('stamp.give', payload);
       form.reset();
+      resetReasonPicker();
       playStampSound(audio);
       showStampCelebration(child, reason);
       notify('Stamp ditambahkan ke koleksi.', 'success');
@@ -1594,6 +1717,6 @@
     const pending = (window.__pending || []).length;
     setManualSyncStatus(`Offline. ${pending ? `${pending} perubahan lokal tetap tersimpan` : 'Data lokal tetap tersedia'}; hubungkan internet untuk memperbarui.`, 'pending');
   });
-  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js').catch(() => {}));
+  if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('/sw.js?v=20261115-reasons-1').catch(() => {}));
   loadApp();
 })();
